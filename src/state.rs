@@ -40,12 +40,10 @@ impl<T> Deref for ExtSync<T> {
 /// Only accessible outside this module via the safe interface `with_plugin_state`.
 static USER_HANDLE: ExtSync<Option<Box<dyn Any>>> = ExtSync(UnsafeCell::new(None));
 
+// todo unify these handles (use NonNull in PluginHandle), once we confirm that we do not in fact need `ph` exported on windows
 /// Global handle to the current HexChat plugin context.
 ///
 /// Only accessible outside this module via the safe interface `with_plugin_state`.
-///
-/// Exported as "ph" to satisfy plugin requirements on Windows, see:
-/// https://hexchat.readthedocs.io/en/latest/plugins.html#plugins-on-windows-win32
 static PLUGIN_HANDLE: ExtSync<*mut hexchat_plugin> = ExtSync(UnsafeCell::new(ptr::null_mut()));
 
 /// Initializes a plugin of type `P`.
