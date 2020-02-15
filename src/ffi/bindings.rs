@@ -70,314 +70,265 @@ fn bindgen_test_layout_hexchat_event_attrs() {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _hexchat_plugin {
-    pub hexchat_hook_command: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            name: *const ::std::os::raw::c_char,
-            pri: ::std::os::raw::c_int,
-            callback: ::std::option::Option<
-                unsafe extern "C" fn(
-                    word: *mut *mut ::std::os::raw::c_char,
-                    word_eol: *mut *mut ::std::os::raw::c_char,
-                    user_data: *mut ::std::os::raw::c_void,
-                ) -> ::std::os::raw::c_int,
-            >,
-            help_text: *const ::std::os::raw::c_char,
-            userdata: *mut ::std::os::raw::c_void,
-        ) -> *mut hexchat_hook,
-    >,
-    pub hexchat_hook_server: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            name: *const ::std::os::raw::c_char,
-            pri: ::std::os::raw::c_int,
-            callback: ::std::option::Option<
-                unsafe extern "C" fn(
-                    word: *mut *mut ::std::os::raw::c_char,
-                    word_eol: *mut *mut ::std::os::raw::c_char,
-                    user_data: *mut ::std::os::raw::c_void,
-                ) -> ::std::os::raw::c_int,
-            >,
-            userdata: *mut ::std::os::raw::c_void,
-        ) -> *mut hexchat_hook,
-    >,
-    pub hexchat_hook_print: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            name: *const ::std::os::raw::c_char,
-            pri: ::std::os::raw::c_int,
-            callback: ::std::option::Option<
-                unsafe extern "C" fn(
-                    word: *mut *mut ::std::os::raw::c_char,
-                    user_data: *mut ::std::os::raw::c_void,
-                ) -> ::std::os::raw::c_int,
-            >,
-            userdata: *mut ::std::os::raw::c_void,
-        ) -> *mut hexchat_hook,
-    >,
-    pub hexchat_hook_timer: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            timeout: ::std::os::raw::c_int,
-            callback: ::std::option::Option<
-                unsafe extern "C" fn(
-                    user_data: *mut ::std::os::raw::c_void,
-                ) -> ::std::os::raw::c_int,
-            >,
-            userdata: *mut ::std::os::raw::c_void,
-        ) -> *mut hexchat_hook,
-    >,
-    pub hexchat_hook_fd: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
+    pub hexchat_hook_command: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        name: *const ::std::os::raw::c_char,
+        pri: ::std::os::raw::c_int,
+        callback: unsafe extern "C" fn(
+            word: *mut *mut ::std::os::raw::c_char,
+            word_eol: *mut *mut ::std::os::raw::c_char,
+            user_data: *mut ::std::os::raw::c_void,
+        ) -> ::std::os::raw::c_int,
+        help_text: *const ::std::os::raw::c_char,
+        userdata: *mut ::std::os::raw::c_void,
+    ) -> *mut hexchat_hook,
+
+    pub hexchat_hook_server: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        name: *const ::std::os::raw::c_char,
+        pri: ::std::os::raw::c_int,
+        callback: unsafe extern "C" fn(
+            word: *mut *mut ::std::os::raw::c_char,
+            word_eol: *mut *mut ::std::os::raw::c_char,
+            user_data: *mut ::std::os::raw::c_void,
+        ) -> ::std::os::raw::c_int,
+        userdata: *mut ::std::os::raw::c_void,
+    ) -> *mut hexchat_hook,
+
+    pub hexchat_hook_print: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        name: *const ::std::os::raw::c_char,
+        pri: ::std::os::raw::c_int,
+        callback: unsafe extern "C" fn(
+            word: *mut *mut ::std::os::raw::c_char,
+            user_data: *mut ::std::os::raw::c_void,
+        ) -> ::std::os::raw::c_int,
+        userdata: *mut ::std::os::raw::c_void,
+    ) -> *mut hexchat_hook,
+
+    pub hexchat_hook_timer: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        timeout: ::std::os::raw::c_int,
+        callback: unsafe extern "C" fn(
+            user_data: *mut ::std::os::raw::c_void,
+        ) -> ::std::os::raw::c_int,
+        userdata: *mut ::std::os::raw::c_void,
+    ) -> *mut hexchat_hook,
+
+    pub hexchat_hook_fd: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        fd: ::std::os::raw::c_int,
+        flags: ::std::os::raw::c_int,
+        callback: unsafe extern "C" fn(
             fd: ::std::os::raw::c_int,
             flags: ::std::os::raw::c_int,
-            callback: ::std::option::Option<
-                unsafe extern "C" fn(
-                    fd: ::std::os::raw::c_int,
-                    flags: ::std::os::raw::c_int,
-                    user_data: *mut ::std::os::raw::c_void,
-                ) -> ::std::os::raw::c_int,
-            >,
-            userdata: *mut ::std::os::raw::c_void,
-        ) -> *mut hexchat_hook,
-    >,
-    pub hexchat_unhook: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            hook: *mut hexchat_hook,
-        ) -> *mut ::std::os::raw::c_void,
-    >,
-    pub hexchat_print: ::std::option::Option<
+            user_data: *mut ::std::os::raw::c_void,
+        ) -> ::std::os::raw::c_int,
+        userdata: *mut ::std::os::raw::c_void,
+    ) -> *mut hexchat_hook,
+
+    pub hexchat_unhook: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        hook: *mut hexchat_hook,
+    ) -> *mut ::std::os::raw::c_void,
+
+    pub hexchat_print:
         unsafe extern "C" fn(ph: *mut hexchat_plugin, text: *const ::std::os::raw::c_char),
-    >,
-    pub hexchat_printf: ::std::option::Option<
+
+    pub hexchat_printf:
         unsafe extern "C" fn(ph: *mut hexchat_plugin, format: *const ::std::os::raw::c_char, ...),
-    >,
-    pub hexchat_command: ::std::option::Option<
+
+    pub hexchat_command:
         unsafe extern "C" fn(ph: *mut hexchat_plugin, command: *const ::std::os::raw::c_char),
-    >,
-    pub hexchat_commandf: ::std::option::Option<
+
+    pub hexchat_commandf:
         unsafe extern "C" fn(ph: *mut hexchat_plugin, format: *const ::std::os::raw::c_char, ...),
-    >,
-    pub hexchat_nickcmp: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            s1: *const ::std::os::raw::c_char,
-            s2: *const ::std::os::raw::c_char,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_set_context: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            ctx: *mut hexchat_context,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_find_context: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            servname: *const ::std::os::raw::c_char,
-            channel: *const ::std::os::raw::c_char,
-        ) -> *mut hexchat_context,
-    >,
-    pub hexchat_get_context: ::std::option::Option<
-        unsafe extern "C" fn(ph: *mut hexchat_plugin) -> *mut hexchat_context,
-    >,
-    pub hexchat_get_info: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            id: *const ::std::os::raw::c_char,
-        ) -> *const ::std::os::raw::c_char,
-    >,
-    pub hexchat_get_prefs: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            name: *const ::std::os::raw::c_char,
-            string: *mut *const ::std::os::raw::c_char,
-            integer: *mut ::std::os::raw::c_int,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_list_get: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            name: *const ::std::os::raw::c_char,
-        ) -> *mut hexchat_list,
-    >,
-    pub hexchat_list_free: ::std::option::Option<
-        unsafe extern "C" fn(ph: *mut hexchat_plugin, xlist: *mut hexchat_list),
-    >,
-    pub hexchat_list_fields: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            name: *const ::std::os::raw::c_char,
-        ) -> *const *const ::std::os::raw::c_char,
-    >,
-    pub hexchat_list_next: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            xlist: *mut hexchat_list,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_list_str: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            xlist: *mut hexchat_list,
-            name: *const ::std::os::raw::c_char,
-        ) -> *const ::std::os::raw::c_char,
-    >,
-    pub hexchat_list_int: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            xlist: *mut hexchat_list,
-            name: *const ::std::os::raw::c_char,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_plugingui_add: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            filename: *const ::std::os::raw::c_char,
-            name: *const ::std::os::raw::c_char,
-            desc: *const ::std::os::raw::c_char,
-            version: *const ::std::os::raw::c_char,
-            reserved: *mut ::std::os::raw::c_char,
-        ) -> *mut ::std::os::raw::c_void,
-    >,
-    pub hexchat_plugingui_remove: ::std::option::Option<
+
+    pub hexchat_nickcmp: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        s1: *const ::std::os::raw::c_char,
+        s2: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_set_context: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        ctx: *mut hexchat_context,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_find_context: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        servname: *const ::std::os::raw::c_char,
+        channel: *const ::std::os::raw::c_char,
+    ) -> *mut hexchat_context,
+
+    pub hexchat_get_context: unsafe extern "C" fn(ph: *mut hexchat_plugin) -> *mut hexchat_context,
+
+    pub hexchat_get_info: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        id: *const ::std::os::raw::c_char,
+    ) -> *const ::std::os::raw::c_char,
+
+    pub hexchat_get_prefs: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        name: *const ::std::os::raw::c_char,
+        string: *mut *const ::std::os::raw::c_char,
+        integer: *mut ::std::os::raw::c_int,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_list_get: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        name: *const ::std::os::raw::c_char,
+    ) -> *mut hexchat_list,
+
+    pub hexchat_list_free: unsafe extern "C" fn(ph: *mut hexchat_plugin, xlist: *mut hexchat_list),
+
+    pub hexchat_list_fields: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        name: *const ::std::os::raw::c_char,
+    ) -> *const *const ::std::os::raw::c_char,
+
+    pub hexchat_list_next: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        xlist: *mut hexchat_list,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_list_str: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        xlist: *mut hexchat_list,
+        name: *const ::std::os::raw::c_char,
+    ) -> *const ::std::os::raw::c_char,
+
+    pub hexchat_list_int: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        xlist: *mut hexchat_list,
+        name: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_plugingui_add: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        filename: *const ::std::os::raw::c_char,
+        name: *const ::std::os::raw::c_char,
+        desc: *const ::std::os::raw::c_char,
+        version: *const ::std::os::raw::c_char,
+        reserved: *mut ::std::os::raw::c_char,
+    ) -> *mut ::std::os::raw::c_void,
+
+    pub hexchat_plugingui_remove:
         unsafe extern "C" fn(ph: *mut hexchat_plugin, handle: *mut ::std::os::raw::c_void),
-    >,
-    pub hexchat_emit_print: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            event_name: *const ::std::os::raw::c_char,
-            ...
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_read_fd: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            src: *mut ::std::os::raw::c_void,
-            buf: *mut ::std::os::raw::c_char,
-            len: *mut ::std::os::raw::c_int,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_list_time: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            xlist: *mut hexchat_list,
-            name: *const ::std::os::raw::c_char,
-        ) -> time_t,
-    >,
-    pub hexchat_gettext: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            msgid: *const ::std::os::raw::c_char,
-        ) -> *mut ::std::os::raw::c_char,
-    >,
-    pub hexchat_send_modes: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            targets: *mut *const ::std::os::raw::c_char,
-            ntargets: ::std::os::raw::c_int,
-            modes_per_line: ::std::os::raw::c_int,
-            sign: ::std::os::raw::c_char,
-            mode: ::std::os::raw::c_char,
-        ),
-    >,
-    pub hexchat_strip: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            str: *const ::std::os::raw::c_char,
-            len: ::std::os::raw::c_int,
-            flags: ::std::os::raw::c_int,
-        ) -> *mut ::std::os::raw::c_char,
-    >,
-    pub hexchat_free: ::std::option::Option<
+
+    pub hexchat_emit_print: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        event_name: *const ::std::os::raw::c_char,
+        ...
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_read_fd: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        src: *mut ::std::os::raw::c_void,
+        buf: *mut ::std::os::raw::c_char,
+        len: *mut ::std::os::raw::c_int,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_list_time: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        xlist: *mut hexchat_list,
+        name: *const ::std::os::raw::c_char,
+    ) -> time_t,
+
+    pub hexchat_gettext: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        msgid: *const ::std::os::raw::c_char,
+    ) -> *mut ::std::os::raw::c_char,
+
+    pub hexchat_send_modes: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        targets: *mut *const ::std::os::raw::c_char,
+        ntargets: ::std::os::raw::c_int,
+        modes_per_line: ::std::os::raw::c_int,
+        sign: ::std::os::raw::c_char,
+        mode: ::std::os::raw::c_char,
+    ),
+
+    pub hexchat_strip: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        str: *const ::std::os::raw::c_char,
+        len: ::std::os::raw::c_int,
+        flags: ::std::os::raw::c_int,
+    ) -> *mut ::std::os::raw::c_char,
+
+    pub hexchat_free:
         unsafe extern "C" fn(ph: *mut hexchat_plugin, ptr: *mut ::std::os::raw::c_void),
-    >,
-    pub hexchat_pluginpref_set_str: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            var: *const ::std::os::raw::c_char,
-            value: *const ::std::os::raw::c_char,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_pluginpref_get_str: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            var: *const ::std::os::raw::c_char,
-            dest: *mut ::std::os::raw::c_char,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_pluginpref_set_int: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            var: *const ::std::os::raw::c_char,
-            value: ::std::os::raw::c_int,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_pluginpref_get_int: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            var: *const ::std::os::raw::c_char,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_pluginpref_delete: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            var: *const ::std::os::raw::c_char,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_pluginpref_list: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            dest: *mut ::std::os::raw::c_char,
-        ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_hook_server_attrs: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            name: *const ::std::os::raw::c_char,
-            pri: ::std::os::raw::c_int,
-            callback: ::std::option::Option<
-                unsafe extern "C" fn(
-                    word: *mut *mut ::std::os::raw::c_char,
-                    word_eol: *mut *mut ::std::os::raw::c_char,
-                    attrs: *mut hexchat_event_attrs,
-                    user_data: *mut ::std::os::raw::c_void,
-                ) -> ::std::os::raw::c_int,
-            >,
-            userdata: *mut ::std::os::raw::c_void,
-        ) -> *mut hexchat_hook,
-    >,
-    pub hexchat_hook_print_attrs: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
-            name: *const ::std::os::raw::c_char,
-            pri: ::std::os::raw::c_int,
-            callback: ::std::option::Option<
-                unsafe extern "C" fn(
-                    word: *mut *mut ::std::os::raw::c_char,
-                    attrs: *mut hexchat_event_attrs,
-                    user_data: *mut ::std::os::raw::c_void,
-                ) -> ::std::os::raw::c_int,
-            >,
-            userdata: *mut ::std::os::raw::c_void,
-        ) -> *mut hexchat_hook,
-    >,
-    pub hexchat_emit_print_attrs: ::std::option::Option<
-        unsafe extern "C" fn(
-            ph: *mut hexchat_plugin,
+
+    pub hexchat_pluginpref_set_str: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        var: *const ::std::os::raw::c_char,
+        value: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_pluginpref_get_str: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        var: *const ::std::os::raw::c_char,
+        dest: *mut ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_pluginpref_set_int: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        var: *const ::std::os::raw::c_char,
+        value: ::std::os::raw::c_int,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_pluginpref_get_int: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        var: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_pluginpref_delete: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        var: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_pluginpref_list: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        dest: *mut ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_hook_server_attrs: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        name: *const ::std::os::raw::c_char,
+        pri: ::std::os::raw::c_int,
+        callback: unsafe extern "C" fn(
+            word: *mut *mut ::std::os::raw::c_char,
+            word_eol: *mut *mut ::std::os::raw::c_char,
             attrs: *mut hexchat_event_attrs,
-            event_name: *const ::std::os::raw::c_char,
-            ...
+            user_data: *mut ::std::os::raw::c_void,
         ) -> ::std::os::raw::c_int,
-    >,
-    pub hexchat_event_attrs_create: ::std::option::Option<
+        userdata: *mut ::std::os::raw::c_void,
+    ) -> *mut hexchat_hook,
+
+    pub hexchat_hook_print_attrs: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        name: *const ::std::os::raw::c_char,
+        pri: ::std::os::raw::c_int,
+        callback: unsafe extern "C" fn(
+            word: *mut *mut ::std::os::raw::c_char,
+            attrs: *mut hexchat_event_attrs,
+            user_data: *mut ::std::os::raw::c_void,
+        ) -> ::std::os::raw::c_int,
+        userdata: *mut ::std::os::raw::c_void,
+    ) -> *mut hexchat_hook,
+
+    pub hexchat_emit_print_attrs: unsafe extern "C" fn(
+        ph: *mut hexchat_plugin,
+        attrs: *mut hexchat_event_attrs,
+        event_name: *const ::std::os::raw::c_char,
+        ...
+    ) -> ::std::os::raw::c_int,
+
+    pub hexchat_event_attrs_create:
         unsafe extern "C" fn(ph: *mut hexchat_plugin) -> *mut hexchat_event_attrs,
-    >,
-    pub hexchat_event_attrs_free: ::std::option::Option<
+
+    pub hexchat_event_attrs_free:
         unsafe extern "C" fn(ph: *mut hexchat_plugin, attrs: *mut hexchat_event_attrs),
-    >,
 }
 #[test]
 fn bindgen_test_layout__hexchat_plugin() {
