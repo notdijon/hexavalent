@@ -110,7 +110,7 @@ pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(
 pub fn with_plugin_state<P: HexchatPlugin, R>(f: impl FnOnce(&P, PluginHandle<'_>) -> R) -> R {
     // usually this check would be looped to account for multiple reader threads trying to acquire it at the same time
     // but we expect there to be only one thread, so panic instead
-    let old_state = STATE.load(Ordering::SeqCst);
+    let old_state = STATE.load(Ordering::Relaxed);
     assert_ne!(old_state, LOCKED, "plugin invoked while (un)loading");
     let replaced_state = STATE.compare_and_swap(old_state, old_state + 1, Ordering::SeqCst);
     assert_ne!(replaced_state, LOCKED, "plugin invoked while (un)loading");
