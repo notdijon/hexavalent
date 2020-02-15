@@ -15,7 +15,7 @@ pub fn catch_and_log_unwind<R>(f: impl FnOnce() -> R + UnwindSafe) -> Result<R, 
             } else {
                 &"<unknown>"
             };
-            // todo check if this actually works
+            // todo use hexchat_print, since this stderr does not go anywhere useful
             eprintln!("Caught panic: {}", message);
             Err(())
         }
