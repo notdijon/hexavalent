@@ -1,0 +1,19 @@
+[package]
+name = "hexavalent"
+version = "0.1.0"
+authors = ["notdijon <61089563+notdijon@users.noreply.github.com>"]
+license = "MIT"
+description = "Write Hexchat plugins in Rust"
+repository = "https://github.com/notdijon/hexavalent"
+documentation = "https://docs.rs/hexavalent"
+readme = "./README.md"
+categories = ["api-bindings"]
+keywords = ["hexchat", "irc"]
+edition = "2018"
+
+[dependencies]
+libc = "0.2.66"
+
+[[example]]
+name = "simple"
+crate-type = ["cdylib"]
