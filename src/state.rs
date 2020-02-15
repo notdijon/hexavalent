@@ -6,7 +6,7 @@ use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::usize;
 
-use crate::ffi::{catch_and_log_unwind, hexchat_plugin, hexchat_print};
+use crate::ffi::{catch_and_log_unwind, hexchat_plugin};
 use crate::plugin::{HexchatPlugin, PluginHandle};
 
 const NO_READERS: usize = 0;

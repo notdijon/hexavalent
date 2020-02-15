@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 bindgen hexchat-plugin.h -o bindings.rs \
---whitelist-function "hexchat.*" --whitelist-type "hexchat.*" --whitelist-var "HEXCHAT.*" \
+--whitelist-type "hexchat.*" --whitelist-var "HEXCHAT.*" \
 --blacklist-type time_t \
 --raw-line "#![allow(dead_code)]" \
 --raw-line "#![allow(non_camel_case_types)]" \
