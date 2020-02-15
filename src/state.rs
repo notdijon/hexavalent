@@ -58,10 +58,6 @@ static PLUGIN_HANDLE: ExtSync<*mut hexchat_plugin> = ExtSync(UnsafeCell::new(ptr
 pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
     plugin_handle: *mut hexchat_plugin,
 ) -> c_int {
-    ((*plugin_handle).hexchat_print.unwrap())(
-        plugin_handle,
-        "test plugin loaded \n\0".as_ptr() as *const c_char,
-    );
     match catch_and_log_unwind(|| {
         {
             let replaced_state =
