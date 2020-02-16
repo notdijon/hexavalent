@@ -19,6 +19,9 @@
 //! If that is not the case, this library provides no guarantees.
 //! (Although it is never explicitly stated that this is true, HexChat's plugin documentation says nothing of synchronization,
 //! and none of the example plugins have any. It also seems true in practice.)
+//!
+//! In debug node (specifically, when `debug_assertions` is enabled), the current thread id will be checked every time the plugin is invoked,
+//! which can help detect misbehavior.
 
 // todo review all docs, add examples
 #![warn(missing_docs)]

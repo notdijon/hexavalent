@@ -3,6 +3,7 @@ use std::cell::UnsafeCell;
 use std::ops::Deref;
 use std::os::raw::c_int;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread::{self, ThreadId};
 use std::usize;
 
 use crate::ffi::{catch_and_log_unwind, hexchat_plugin};
@@ -37,7 +38,7 @@ impl<T> Deref for ExtSync<T> {
 /// Global handle to the user's plugin data and the global HexCHat plugin context.
 ///
 /// Only accessible outside this module via the safe interface `with_plugin_state`.
-static PLUGIN: ExtSync<Option<(Box<dyn Any>, *mut hexchat_plugin)>> =
+static PLUGIN: ExtSync<Option<(ThreadId, Box<dyn Any>, *mut hexchat_plugin)>> =
     ExtSync(UnsafeCell::new(None));
 
 /// Initializes a plugin of type `P`.
@@ -59,7 +60,11 @@ pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
             defer! { STATE.store(NO_READERS, Ordering::SeqCst) };
 
             // Safety: STATE guarantees unique access to handles
-            *PLUGIN.get() = Some((Box::new(P::default()), plugin_handle));
+            *PLUGIN.get() = Some((
+                thread::current().id(),
+                Box::new(P::default()),
+                plugin_handle,
+            ));
         }
 
         with_plugin_state(|this: &P, ph| this.init(ph));
@@ -118,11 +123,13 @@ pub fn with_plugin_state<P: HexchatPlugin, R>(f: impl FnOnce(&P, PluginHandle<'_
     defer! { STATE.fetch_sub(1, Ordering::SeqCst) };
 
     // Safety: STATE guarantees that there are only readers active
-    let (user_handle, plugin_handle) = unsafe {
+    let (thread_id, user_handle, plugin_handle) = unsafe {
         (&*PLUGIN.get())
             .as_ref()
             .unwrap_or_else(|| panic!("plugin invoked while uninitialized"))
     };
+
+    debug_assert_eq!(*thread_id, thread::current().id());
 
     let user_handle = user_handle
         .downcast_ref()
