@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread::{self, ThreadId};
 use std::usize;
 
-use crate::ffi::{catch_and_log_unwind, hexchat_plugin};
+use crate::ffi::{catch_and_log_unwind, hexchat_plugin, result_to_int};
 use crate::plugin::{HexchatPlugin, PluginHandle};
 
 const NO_READERS: usize = 0;
@@ -55,7 +55,7 @@ pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
 ) -> c_int {
     // Safety: `plugin_handle` points to a valid `hexchat_plugin`
     let ph = PluginHandle::new(plugin_handle);
-    match catch_and_log_unwind(ph, "init", || {
+    result_to_int(catch_and_log_unwind(ph, "init", || {
         {
             let replaced_state = STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::SeqCst);
             assert_eq!(replaced_state, NO_READERS, "initialized while running");
@@ -70,10 +70,7 @@ pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
         }
 
         with_plugin_state(|this: &P, ph| this.init(ph));
-    }) {
-        Ok(()) => 1,
-        Err(_) => 0,
-    }
+    }))
 }
 
 /// Deinitializes a plugin of type `P`.
@@ -88,7 +85,7 @@ pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
 pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
     // Safety: `plugin_handle` points to a valid `hexchat_plugin`
     let ph = PluginHandle::new(plugin_handle);
-    match catch_and_log_unwind(ph, "deinit", || {
+    result_to_int(catch_and_log_unwind(ph, "deinit", || {
         with_plugin_state(|this: &P, ph| this.deinit(ph));
 
         {
@@ -99,10 +96,7 @@ pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(plugin_handle: *mut hexcha
             // Safety: LOCK guarantees unique access to handles
             *PLUGIN.get() = None;
         }
-    }) {
-        Ok(()) => 1,
-        Err(_) => 0,
-    }
+    }))
 }
 
 /// Gets a safe reference to the current HexChat plugin handle and a plugin of type `P`.
