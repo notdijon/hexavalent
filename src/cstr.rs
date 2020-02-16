@@ -129,12 +129,11 @@ mod private {
     }
 }
 
-pub(crate) use private::IntoCstrImpl;
-
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
 
+    use super::private::*;
     use super::*;
 
     fn cs(s: &str) -> &CStr {
