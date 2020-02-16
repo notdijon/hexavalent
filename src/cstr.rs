@@ -130,3 +130,94 @@ mod private {
 }
 
 pub(crate) use private::IntoCstrImpl;
+
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+
+    use super::*;
+
+    fn cs(s: &str) -> &CStr {
+        CStr::from_bytes_with_nul(s.as_bytes()).unwrap()
+    }
+
+    #[test]
+    fn intocstr_str() {
+        let owner = "hello".into_cstr_owner();
+        assert_matches!(Cow::Owned(_), owner);
+        assert_eq!(owner.as_ref(), cs("hello\0"));
+
+        let owner = "hello\0".into_cstr_owner();
+        assert_matches!(Cow::Borrowed(_), owner);
+        assert_eq!(owner.as_ref(), cs("hello\0"));
+
+        "hello".with_cstr(|c| {
+            assert_eq!(c, cs("hello\0"));
+        });
+
+        "hello\0".with_cstr(|c| {
+            assert_eq!(c, cs("hello\0"));
+        });
+    }
+
+    #[test]
+    #[should_panic]
+    fn intocstr_str_invalid_no_null() {
+        "hel\0lo".into_cstr_owner();
+    }
+
+    #[test]
+    #[should_panic]
+    fn intocstr_str_invalid_with_null() {
+        "hel\0lo\0".into_cstr_owner();
+    }
+
+    #[test]
+    fn intocstr_string() {
+        let owner = String::from("hello").into_cstr_owner();
+        assert_eq!(owner.as_ref(), cs("hello\0"));
+
+        let owner = String::from("hello\0").into_cstr_owner();
+        assert_eq!(owner.as_ref(), cs("hello\0"));
+
+        String::from("hello").with_cstr(|c| {
+            assert_eq!(c, cs("hello\0"));
+        });
+
+        String::from("hello\0").with_cstr(|c| {
+            assert_eq!(c, cs("hello\0"));
+        });
+    }
+
+    #[test]
+    #[should_panic]
+    fn intocstr_string_invalid_no_null() {
+        String::from("hel\0lo").into_cstr_owner();
+    }
+
+    #[test]
+    #[should_panic]
+    fn intocstr_string_invalid_with_null() {
+        String::from("hel\0lo\0").into_cstr_owner();
+    }
+
+    #[test]
+    fn intocstr_cstr() {
+        let owner = cs("hello\0").into_cstr_owner();
+        assert_eq!(owner.as_ref(), cs("hello\0"));
+
+        cs("hello\0").with_cstr(|c| {
+            assert_eq!(c, cs("hello\0"));
+        });
+    }
+
+    #[test]
+    fn intocstr_cstring() {
+        let owner = CString::new("hello").unwrap().into_cstr_owner();
+        assert_eq!(owner.as_ref(), cs("hello\0"));
+
+        CString::new("hello").unwrap().with_cstr(|c| {
+            assert_eq!(c, cs("hello\0"));
+        });
+    }
+}
