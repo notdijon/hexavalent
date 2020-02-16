@@ -64,16 +64,16 @@ impl<'ph> PluginHandle<'ph> {
     ///
     /// ```rust
     /// # use hexavalent::PluginHandle;
-    /// # fn example(ph: PluginHandle<'_>) {
-    /// // null-termination is not required, but avoids allocation
-    /// ph.print("hello!\0");
-    /// # }
+    /// fn say_hello(ph: PluginHandle<'_>) {
+    ///     // null-termination is not required, but avoids allocation
+    ///     ph.print("hello!\0");
+    /// }
     /// ```
     pub fn print(self, text: impl IntoCstr) {
-        text.with_cstr(|cs| {
+        text.with_cstr(|text| {
             // Safety: `handle` is always valid
             unsafe {
-                ((*self.handle).hexchat_print)(self.handle, cs.as_ptr());
+                ((*self.handle).hexchat_print)(self.handle, text.as_ptr());
             }
         });
     }
