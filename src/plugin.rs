@@ -21,8 +21,10 @@ pub trait HexchatPlugin: 'static {
     /// # Examples
     ///
     /// ```rust
-    /// # use hexavalent::{HexchatPlugin, PluginHandle};
-    /// # struct MyPlugin;
+    /// use hexavalent::{HexchatPlugin, PluginHandle};
+    ///
+    /// struct MyPlugin;
+    ///
     /// impl HexchatPlugin for MyPlugin {
     ///     fn init(&self, ph: PluginHandle<'_>) {
     ///         ph.print("Plugin loaded successfully!\0");
@@ -44,8 +46,10 @@ pub trait HexchatPlugin: 'static {
     /// # Examples
     ///
     /// ```rust
-    /// # use hexavalent::{HexchatPlugin, PluginHandle};
-    /// # struct MyPlugin;
+    /// use hexavalent::{HexchatPlugin, PluginHandle};
+    ///
+    /// struct MyPlugin;
+    ///
     /// impl HexchatPlugin for MyPlugin {
     ///     fn init(&self, _: PluginHandle<'_>) {}
     ///
@@ -72,8 +76,7 @@ pub trait HexchatPlugin: 'static {
 /// All functions which take `&str` arguments will allocate if the string is not null-terminated, and panic if the string contains interior nulls.
 ///
 /// ```rust
-/// # use hexavalent::PluginHandle;
-/// # fn print_some_stuff(ph: PluginHandle<'_>) {
+/// # fn print_some_stuff(ph: hexavalent::PluginHandle<'_>) {
 /// // for example, this would not allocate
 /// ph.print("hello\0");
 /// // ...this would allocate
@@ -114,7 +117,8 @@ impl<'ph> PluginHandle<'ph> {
     /// # Examples
     ///
     /// ```rust
-    /// # use hexavalent::PluginHandle;
+    /// use hexavalent::PluginHandle;
+    ///
     /// fn say_hello(ph: PluginHandle<'_>) {
     ///     // null-termination is not required, but avoids allocation
     ///     ph.print("hello!\0");
@@ -136,7 +140,8 @@ impl<'ph> PluginHandle<'ph> {
     /// # Examples
     ///
     /// ```rust
-    /// # use hexavalent::PluginHandle;
+    /// use hexavalent::PluginHandle;
+    ///
     /// fn op_user(ph: PluginHandle<'_>, username: &str) {
     ///     // do not include the leading slash
     ///     ph.command(&format!("OP {}\0", username));

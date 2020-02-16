@@ -48,7 +48,8 @@ pub use plugin::{HexchatPlugin, PluginHandle};
 /// # Examples
 ///
 /// ```rust
-/// # use hexavalent::{HexchatPlugin, PluginHandle, export_plugin};
+/// use hexavalent::{HexchatPlugin, PluginHandle, export_plugin};
+///
 /// #[derive(Default)]
 /// struct NoopPlugin;
 ///
@@ -64,12 +65,17 @@ pub use plugin::{HexchatPlugin, PluginHandle};
 /// Cargo's environment variables can also be used to copy `name`, `description`, and `version` from `Cargo.toml`.
 ///
 /// ```rust
-/// # use hexavalent::{HexchatPlugin, PluginHandle, export_plugin};
-/// # #[derive(Default)]
-/// # struct NoopPlugin;
-/// # impl HexchatPlugin for NoopPlugin {
-/// #     fn init(&self, ph: PluginHandle<'_>) {}
-/// # }
+/// use hexavalent::{HexchatPlugin, PluginHandle, export_plugin};
+///
+/// #[derive(Default)]
+/// struct NoopPlugin;
+///
+/// impl HexchatPlugin for NoopPlugin {
+///     fn init(&self, ph: PluginHandle<'_>) {
+///         ph.print("Hello world!\0");
+///     }
+/// }
+///
 /// export_plugin!(
 ///     NoopPlugin,
 ///     name: env!("CARGO_PKG_NAME"),
