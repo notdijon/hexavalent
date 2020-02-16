@@ -47,20 +47,20 @@ mod private {
     use std::ffi::{CStr, CString};
 
     pub trait IntoCstrImpl: Sized {
-        type OWNER: AsRef<CStr>;
+        type CSTR: AsRef<CStr>;
 
-        fn into_cstr_owner(self) -> Self::OWNER;
+        fn into_cstr(self) -> Self::CSTR;
 
         fn with_cstr<R>(self, f: impl FnOnce(&CStr) -> R) -> R {
-            let owner = self.into_cstr_owner();
+            let owner = self.into_cstr();
             f(owner.as_ref())
         }
     }
 
     impl<'a> IntoCstrImpl for &'a str {
-        type OWNER = Cow<'a, CStr>;
+        type CSTR = Cow<'a, CStr>;
 
-        fn into_cstr_owner(self) -> Self::OWNER {
+        fn into_cstr(self) -> Self::CSTR {
             // check last byte up front to avoid scanning the string twice if it does not end with null
             if self.as_bytes().last() == Some(&0) {
                 Cow::Borrowed(CStr::from_bytes_with_nul(self.as_bytes()).unwrap())
@@ -80,9 +80,9 @@ mod private {
     }
 
     impl IntoCstrImpl for String {
-        type OWNER = CString;
+        type CSTR = CString;
 
-        fn into_cstr_owner(self) -> Self::OWNER {
+        fn into_cstr(self) -> Self::CSTR {
             let bytes = self.into_bytes();
             let first_null_byte = bytes.iter().position(|x| *x == 0);
 
@@ -113,17 +113,17 @@ mod private {
     }
 
     impl<'a> IntoCstrImpl for &'a CStr {
-        type OWNER = Self;
+        type CSTR = Self;
 
-        fn into_cstr_owner(self) -> Self::OWNER {
+        fn into_cstr(self) -> Self::CSTR {
             self
         }
     }
 
     impl<'a> IntoCstrImpl for CString {
-        type OWNER = Self;
+        type CSTR = Self;
 
-        fn into_cstr_owner(self) -> Self::OWNER {
+        fn into_cstr(self) -> Self::CSTR {
             self
         }
     }
@@ -143,11 +143,11 @@ mod tests {
 
     #[test]
     fn intocstr_str() {
-        let owner = "hello".into_cstr_owner();
+        let owner = "hello".into_cstr();
         assert_matches!(Cow::Owned(_), owner);
         assert_eq!(owner.as_ref(), cs("hello\0"));
 
-        let owner = "hello\0".into_cstr_owner();
+        let owner = "hello\0".into_cstr();
         assert_matches!(Cow::Borrowed(_), owner);
         assert_eq!(owner.as_ref(), cs("hello\0"));
 
@@ -163,21 +163,21 @@ mod tests {
     #[test]
     #[should_panic]
     fn intocstr_str_invalid_no_null() {
-        "hel\0lo".into_cstr_owner();
+        "hel\0lo".into_cstr();
     }
 
     #[test]
     #[should_panic]
     fn intocstr_str_invalid_with_null() {
-        "hel\0lo\0".into_cstr_owner();
+        "hel\0lo\0".into_cstr();
     }
 
     #[test]
     fn intocstr_string() {
-        let owner = String::from("hello").into_cstr_owner();
+        let owner = String::from("hello").into_cstr();
         assert_eq!(owner.as_ref(), cs("hello\0"));
 
-        let owner = String::from("hello\0").into_cstr_owner();
+        let owner = String::from("hello\0").into_cstr();
         assert_eq!(owner.as_ref(), cs("hello\0"));
 
         String::from("hello").with_cstr(|c| {
@@ -192,18 +192,18 @@ mod tests {
     #[test]
     #[should_panic]
     fn intocstr_string_invalid_no_null() {
-        String::from("hel\0lo").into_cstr_owner();
+        String::from("hel\0lo").into_cstr();
     }
 
     #[test]
     #[should_panic]
     fn intocstr_string_invalid_with_null() {
-        String::from("hel\0lo\0").into_cstr_owner();
+        String::from("hel\0lo\0").into_cstr();
     }
 
     #[test]
     fn intocstr_cstr() {
-        let owner = cs("hello\0").into_cstr_owner();
+        let owner = cs("hello\0").into_cstr();
         assert_eq!(owner.as_ref(), cs("hello\0"));
 
         cs("hello\0").with_cstr(|c| {
@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn intocstr_cstring() {
-        let owner = CString::new("hello").unwrap().into_cstr_owner();
+        let owner = CString::new("hello").unwrap().into_cstr();
         assert_eq!(owner.as_ref(), cs("hello\0"));
 
         CString::new("hello").unwrap().with_cstr(|c| {
