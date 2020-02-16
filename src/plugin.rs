@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use crate::cstr::IntoCstr;
 use crate::ffi::hexchat_plugin;
 
 /// Must be implemented by all HexChat plugins.
@@ -33,6 +34,8 @@ pub trait HexchatPlugin: 'static {
 /// Cannot be constructed in user code, but is passed into `init`, `deinit`, and hook callbacks such as `hook_print`.
 ///
 /// Analogous to `plugin_handle *ph`.
+/// Most of HexChat's [functions](https://hexchat.readthedocs.io/en/latest/plugins.html#functions) are available as struct methods,
+/// without the `hexchat_` prefix.
 #[derive(Copy, Clone)]
 pub struct PluginHandle<'ph> {
     /// Always points to a valid instance of `hexchat_plugin`.
@@ -53,12 +56,31 @@ impl<'ph> PluginHandle<'ph> {
         }
     }
 
+    /// Prints text to the current tab. Text may contain mIRC color codes.
+    ///
+    /// Analogous to `hexchat_print`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use hexavalent::PluginHandle;
+    /// # fn example(ph: PluginHandle<'_>) {
+    /// // null-termination is not required, but avoids allocation
+    /// ph.print("hello!\0");
+    /// # }
+    /// ```
+    pub fn print(self, text: impl IntoCstr) {
+        text.with_cstr(|cs| {
+            // Safety: `handle` is always valid
+            unsafe {
+                ((*self.handle).hexchat_print)(self.handle, cs.as_ptr());
+            }
+        });
+    }
     /* TODO
         // general functions https://hexchat.readthedocs.io/en/latest/plugins.html#general-functions
         hexchat_command,
-        hexchat_commandf,
         hexchat_print,
-        hexchat_printf,
         hexchat_emit_print,
         hexchat_emit_print_attrs,
         hexchat_send_modes,
