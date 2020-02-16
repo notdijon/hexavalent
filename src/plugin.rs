@@ -77,6 +77,28 @@ impl<'ph> PluginHandle<'ph> {
             }
         });
     }
+
+    /// Executes a command as if it were typed into HexChat's input box after a `/`.
+    ///
+    /// Analogous to `hexchat_command`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use hexavalent::PluginHandle;
+    /// fn op_user(ph: PluginHandle<'_>, username: &str) {
+    ///     // do not inclide the leading slash
+    ///     ph.command(format!("OP {}", username));
+    /// }
+    /// ```
+    pub fn command(self, cmd: impl IntoCstr) {
+        cmd.with_cstr(|cmd| {
+            // Safety: `handle` is always valid
+            unsafe {
+                ((*self.handle).hexchat_command)(self.handle, cmd.as_ptr());
+            }
+        })
+    }
     /* TODO
         // general functions https://hexchat.readthedocs.io/en/latest/plugins.html#general-functions
         hexchat_command,
