@@ -97,9 +97,11 @@ macro_rules! export_plugin {
             const NAME: &'static str = concat!($name, "\0");
             const DESC: &'static str = concat!($desc, "\0");
             const VERSION: &'static str = concat!($version, "\0");
-            *plugin_name = NAME.as_ptr() as *const ::std::os::raw::c_char;
-            *plugin_desc = DESC.as_ptr() as *const ::std::os::raw::c_char;
-            *plugin_version = VERSION.as_ptr() as *const ::std::os::raw::c_char;
+            // note that these user-provided strings may contain interior nulls, so we cannot go through &CStr
+            // it's fine to go straight to `*const c_char` though, as C doesn't care about that, it'll just end the string early
+            *plugin_name = NAME.as_ptr().cast();
+            *plugin_desc = DESC.as_ptr().cast();
+            *plugin_version = VERSION.as_ptr().cast();
 
             $crate::internal::hexchat_plugin_init::<$plugin_ty>(plugin_handle)
         }
