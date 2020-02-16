@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+use std::ffi::{CStr, CString};
 use std::os::raw::c_int;
 use std::panic::{catch_unwind, UnwindSafe};
 
@@ -32,7 +34,7 @@ pub fn catch_and_log_unwind<R>(
             } else {
                 &"<unknown>"
             };
-            ph.print(format!(
+            ph.print(&format!(
                 "WARNING: `hexavalent` caught panic (in `{}`): {}\0",
                 ctxt_msg, message
             ));
@@ -56,5 +58,77 @@ pub fn result_to_int<E>(res: Result<(), E>) -> c_int {
     match res {
         Ok(()) => SUCCESS,
         Err(_) => FAILURE,
+    }
+}
+
+pub trait StrExt {
+    type CSTR: AsRef<CStr>;
+
+    fn into_cstr(self) -> Self::CSTR;
+
+    fn with_cstr<R>(self, f: impl FnOnce(&CStr) -> R) -> R;
+}
+
+impl<'a> StrExt for &'a str {
+    type CSTR = Cow<'a, CStr>;
+
+    fn into_cstr(self) -> Self::CSTR {
+        // check last byte up front to avoid scanning the string twice if it does not end with null
+        if self.as_bytes().last() == Some(&0) {
+            Cow::Borrowed(CStr::from_bytes_with_nul(self.as_bytes()).unwrap())
+        } else {
+            Cow::Owned(CString::new(self).unwrap())
+        }
+    }
+
+    fn with_cstr<R>(self, f: impl FnOnce(&CStr) -> R) -> R {
+        // check last byte up front to avoid scanning the string twice if it does not end with null
+        if self.as_bytes().last() == Some(&0) {
+            f(CStr::from_bytes_with_nul(self.as_bytes()).unwrap())
+        } else {
+            f(CString::new(self).unwrap().as_ref())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+
+    use super::*;
+
+    fn cs(s: &str) -> &CStr {
+        CStr::from_bytes_with_nul(s.as_bytes()).unwrap()
+    }
+
+    #[test]
+    fn intocstr_str() {
+        let owner = "hello".into_cstr();
+        assert_matches!(Cow::Owned(_), owner);
+        assert_eq!(owner.as_ref(), cs("hello\0"));
+
+        let owner = "hello\0".into_cstr();
+        assert_matches!(Cow::Borrowed(_), owner);
+        assert_eq!(owner.as_ref(), cs("hello\0"));
+
+        "hello".with_cstr(|c| {
+            assert_eq!(c, cs("hello\0"));
+        });
+
+        "hello\0".with_cstr(|c| {
+            assert_eq!(c, cs("hello\0"));
+        });
+    }
+
+    #[test]
+    #[should_panic]
+    fn intocstr_str_invalid_no_null() {
+        "hel\0lo".into_cstr();
+    }
+
+    #[test]
+    #[should_panic]
+    fn intocstr_str_invalid_with_null() {
+        "hel\0lo\0".into_cstr();
     }
 }

@@ -37,8 +37,6 @@ mod state;
 #[doc(hidden)]
 pub mod internal;
 
-pub mod cstr;
-
 pub use plugin::{HexchatPlugin, PluginHandle};
 
 /// Defines the necessary exports for HexChat to load your plugin.

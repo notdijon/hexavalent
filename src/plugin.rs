@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::cstr::IntoCstr;
-use crate::ffi::hexchat_plugin;
+use crate::ffi::{hexchat_plugin, StrExt};
 
 /// Must be implemented by all HexChat plugins.
 ///
@@ -67,6 +66,24 @@ pub trait HexchatPlugin: 'static {
 ///
 /// Most of HexChat's [functions](https://hexchat.readthedocs.io/en/latest/plugins.html#functions) are available as struct methods,
 /// without the `hexchat_` prefix.
+///
+/// # Examples
+///
+/// All functions which take `&str` arguments will allocate if the string is not null-terminated, and panic if the string contains interior nulls.
+///
+/// ```rust
+/// # use hexavalent::PluginHandle;
+/// # fn print_some_stuff(ph: PluginHandle<'_>) {
+/// // for example, this would not allocate
+/// ph.print("hello\0");
+/// // ...this would allocate
+/// ph.print("hello");
+/// // ...and this would panic
+/// ph.print("hel\0lo");
+/// # }
+/// ```
+///
+/// TODO add basic hook example
 #[derive(Copy, Clone)]
 pub struct PluginHandle<'ph> {
     /// Always points to a valid instance of `hexchat_plugin`.
@@ -103,7 +120,7 @@ impl<'ph> PluginHandle<'ph> {
     ///     ph.print("hello!\0");
     /// }
     /// ```
-    pub fn print(self, text: impl IntoCstr) {
+    pub fn print(self, text: &str) {
         text.with_cstr(|text| {
             // Safety: `handle` is always valid
             unsafe {
@@ -122,10 +139,10 @@ impl<'ph> PluginHandle<'ph> {
     /// # use hexavalent::PluginHandle;
     /// fn op_user(ph: PluginHandle<'_>, username: &str) {
     ///     // do not include the leading slash
-    ///     ph.command(format!("OP {}", username));
+    ///     ph.command(&format!("OP {}\0", username));
     /// }
     /// ```
-    pub fn command(self, cmd: impl IntoCstr) {
+    pub fn command(self, cmd: &str) {
         cmd.with_cstr(|cmd| {
             // Safety: `handle` is always valid
             unsafe {
