@@ -86,7 +86,10 @@ impl<'ph> PluginHandle<'ph> {
             _lifetime: PhantomData,
         }
     }
+}
 
+/// [General Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#general-functions)
+impl<'ph> PluginHandle<'ph> {
     /// Prints text to the current tab. Text may contain mIRC color codes.
     ///
     /// Analogous to [`hexchat_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_print).
@@ -130,10 +133,8 @@ impl<'ph> PluginHandle<'ph> {
             }
         })
     }
+
     /* TODO
-        // general functions https://hexchat.readthedocs.io/en/latest/plugins.html#general-functions
-        hexchat_command,
-        hexchat_print,
         hexchat_emit_print,
         hexchat_emit_print_attrs,
         hexchat_send_modes,
@@ -142,7 +143,12 @@ impl<'ph> PluginHandle<'ph> {
         hexchat_free,
         hexchat_event_attrs_create,
         hexchat_event_attrs_free,
-        // getting information https://hexchat.readthedocs.io/en/latest/plugins.html#getting-information
+    */
+}
+
+/// [Getting Information](https://hexchat.readthedocs.io/en/latest/plugins.html#getting-information)
+impl<'ph> PluginHandle<'ph> {
+    /* TODO
         hexchat_get_info,
         hexchat_get_prefs,
         hexchat_list_get,
@@ -152,7 +158,12 @@ impl<'ph> PluginHandle<'ph> {
         hexchat_list_int,
         hexchat_list_time,
         hexchat_list_free,
-        // hook functions https://hexchat.readthedocs.io/en/latest/plugins.html#hook-functions
+    */
+}
+
+/// [Hook Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#hook-functions)
+impl<'ph> PluginHandle<'ph> {
+    /* TODO
         hexchat_hook_command,
         hexchat_hook_fd,
         hexchat_hook_print,
@@ -161,18 +172,33 @@ impl<'ph> PluginHandle<'ph> {
         hexchat_hook_server_attrs,
         hexchat_hook_timer,
         hexchat_unhook,
-        // context functions https://hexchat.readthedocs.io/en/latest/plugins.html#context-functions
+    */
+}
+
+/// [Context Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#context-functions)
+impl<'ph> PluginHandle<'ph> {
+    /* TODO
         hexchat_find_context,
         hexchat_get_context,
         hexchat_set_context,
-        // plugin preferences https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-preferences
+    */
+}
+
+/// [Plugin Preferences](https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-preferences)
+impl<'ph> PluginHandle<'ph> {
+    /* TODO
         hexchat_pluginpref_set_str,
         hexchat_pluginpref_get_str,
         hexchat_pluginpref_set_int,
         hexchat_pluginpref_get_int,
         hexchat_pluginpref_delete,
         hexchat_pluginpref_list,
-        // plugin gui https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-gui
+    */
+}
+
+/// [Plugin GUI](https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-gui)
+impl<'ph> PluginHandle<'ph> {
+    /* TODO
         hexchat_plugingui_add,
         hexchat_plugingui_remove,
     */
