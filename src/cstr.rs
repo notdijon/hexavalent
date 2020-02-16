@@ -2,16 +2,14 @@
 
 use std::ffi::{CStr, CString};
 
-/// Used to convert various Rust strings into C-style strings that HexChat understands.
+/// Used to convert various Rust strings into C-style strings.
 ///
-/// This conversion may or may not allocate, depending on the type and value.
+/// This conversion may or may not allocate, depending on the type.
 /// Doc comments on each implementation indicate when it allocates.
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
 pub trait IntoCstr: private::IntoCstrImpl {}
 
-/// Convert `&str` to `&CStr`.
-///
 /// This conversion allocates if the input string does not end with a null byte.
 /// For example, `"hello"` would allocate, and `"hello\0"` would not allocate.
 ///
@@ -21,8 +19,6 @@ pub trait IntoCstr: private::IntoCstrImpl {}
 /// For example, `"hel\0lo"` would panic, while `"hello"` and `"hello\0"` would not panic.
 impl<'a> IntoCstr for &'a str {}
 
-/// Convert `String` to `&CStr`.
-///
 /// This conversion allocates if the input string does not end with a null byte.
 /// For example, `"hello"` would allocate, and `"hello\0"` would not allocate.
 ///
@@ -32,13 +28,9 @@ impl<'a> IntoCstr for &'a str {}
 /// For example, `"hel\0lo"` would panic, while `"hello"` and `"hello\0"` would not panic.
 impl IntoCstr for String {}
 
-/// Convert `&CStr` to `&CStr`.
-///
 /// This conversion never allocates.
 impl<'a> IntoCstr for &'a CStr {}
 
-/// Convert `CString` to `&CStr`.
-///
 /// This conversion never allocates.
 impl IntoCstr for CString {}
 

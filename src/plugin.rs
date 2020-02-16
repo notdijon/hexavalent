@@ -6,13 +6,30 @@ use crate::ffi::hexchat_plugin;
 /// Must be implemented by all HexChat plugins.
 ///
 /// Plugins must also implement `Default`, although it is not a superclass due to object safety restrictions.
+///
+/// # Examples
+///
+/// TODO add example when more stuff works
+///  printing statistics would be good here
 pub trait HexchatPlugin: 'static {
     /// Initialize your plugin.
     ///
     /// Use this method to perform any work that should be done when your plugin is loaded,
     /// such as registering hooks or printing startup messages.
     ///
-    /// Analogous to `hexchat_plugin_init`.
+    /// Analogous to [`hexchat_plugin_init`](https://hexchat.readthedocs.io/en/latest/plugins.html#sample-plugin).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use hexavalent::{HexchatPlugin, PluginHandle};
+    /// # struct MyPlugin;
+    /// impl HexchatPlugin for MyPlugin {
+    ///     fn init(&self, ph: PluginHandle<'_>) {
+    ///         ph.print("Plugin loaded successfully!\0");
+    ///     }
+    /// }
+    /// ```
     fn init(&self, ph: PluginHandle<'_>);
 
     /// Deinitialize your plugin.
@@ -23,23 +40,37 @@ pub trait HexchatPlugin: 'static {
     /// You do not need to explicitly `unhook` any hooks in this method, as remaining hooks are
     /// automatically removed by HexChat when your plugin finishes unloading.
     ///
-    /// Analogous to `hexchat_plugin_deinit`.
+    /// Analogous to [`hexchat_plugin_deinit`](https://hexchat.readthedocs.io/en/latest/plugins.html#sample-plugin).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use hexavalent::{HexchatPlugin, PluginHandle};
+    /// # struct MyPlugin;
+    /// impl HexchatPlugin for MyPlugin {
+    ///     fn init(&self, _: PluginHandle<'_>) {}
+    ///
+    ///     fn deinit(&self, ph: PluginHandle<'_>) {
+    ///         ph.print("Plugin unloading...\0");
+    ///     }
+    /// }
+    /// ```
     fn deinit(&self, ph: PluginHandle<'_>) {
         let _ = ph;
     }
 }
 
-/// The primary way to interact with HexChat's plugin API.
+/// Interacts with HexChat's plugin API.
 ///
-/// Cannot be constructed in user code, but is passed into `init`, `deinit`, and hook callbacks such as `hook_print`.
+/// Cannot be constructed in user code, but is passed into [`init`](trait.HexchatPlugin.html#tymethod.init), [`deinit`](trait.HexchatPlugin.html#method.deinit),
+/// and hook callbacks such as [`hook_print`](struct.PluginHandle.html#method.hook_print).
 ///
-/// Analogous to `plugin_handle *ph`.
 /// Most of HexChat's [functions](https://hexchat.readthedocs.io/en/latest/plugins.html#functions) are available as struct methods,
 /// without the `hexchat_` prefix.
 #[derive(Copy, Clone)]
 pub struct PluginHandle<'ph> {
     /// Always points to a valid instance of `hexchat_plugin`.
-    pub(crate) handle: *mut hexchat_plugin,
+    handle: *mut hexchat_plugin,
     _lifetime: PhantomData<&'ph hexchat_plugin>,
 }
 
@@ -58,7 +89,7 @@ impl<'ph> PluginHandle<'ph> {
 
     /// Prints text to the current tab. Text may contain mIRC color codes.
     ///
-    /// Analogous to `hexchat_print`.
+    /// Analogous to [`hexchat_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_print).
     ///
     /// # Examples
     ///
@@ -80,14 +111,14 @@ impl<'ph> PluginHandle<'ph> {
 
     /// Executes a command as if it were typed into HexChat's input box after a `/`.
     ///
-    /// Analogous to `hexchat_command`.
+    /// Analogous to [`hexchat_command`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_command).
     ///
     /// # Examples
     ///
     /// ```rust
     /// # use hexavalent::PluginHandle;
     /// fn op_user(ph: PluginHandle<'_>, username: &str) {
-    ///     // do not inclide the leading slash
+    ///     // do not include the leading slash
     ///     ph.command(format!("OP {}", username));
     /// }
     /// ```
