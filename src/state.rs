@@ -53,7 +53,9 @@ static PLUGIN: ExtSync<Option<(ThreadId, Box<dyn Any>, *mut hexchat_plugin)>> =
 pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
     plugin_handle: *mut hexchat_plugin,
 ) -> c_int {
-    match catch_and_log_unwind(|| {
+    // Safety: `plugin_handle` points to a valid `hexchat_plugin`
+    let ph = PluginHandle::new(plugin_handle);
+    match catch_and_log_unwind(ph, "init", || {
         {
             let replaced_state = STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::SeqCst);
             assert_eq!(replaced_state, NO_READERS, "initialized while running");
@@ -83,10 +85,10 @@ pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
 /// # Panics
 ///
 /// If the plugin is running and currently holds a reference to the plugin state.
-pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(
-    _plugin_handle: *mut hexchat_plugin,
-) -> c_int {
-    match catch_and_log_unwind(|| {
+pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
+    // Safety: `plugin_handle` points to a valid `hexchat_plugin`
+    let ph = PluginHandle::new(plugin_handle);
+    match catch_and_log_unwind(ph, "deinit", || {
         with_plugin_state(|this: &P, ph| this.deinit(ph));
 
         {

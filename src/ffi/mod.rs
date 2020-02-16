@@ -1,10 +1,14 @@
 use std::panic::{catch_unwind, UnwindSafe};
 
+use crate::PluginHandle;
+
 mod bindings;
 
-// todo run under valgrind
-
-pub fn catch_and_log_unwind<R>(f: impl FnOnce() -> R + UnwindSafe) -> Result<R, ()> {
+pub fn catch_and_log_unwind<R>(
+    ph: PluginHandle<'_>,
+    ctxt_msg: &str,
+    f: impl FnOnce() -> R + UnwindSafe,
+) -> Result<R, ()> {
     match catch_unwind(f) {
         Ok(x) => Ok(x),
         Err(e) => {
@@ -15,8 +19,10 @@ pub fn catch_and_log_unwind<R>(f: impl FnOnce() -> R + UnwindSafe) -> Result<R, 
             } else {
                 &"<unknown>"
             };
-            // todo use hexchat_print, since this stderr does not go anywhere useful
-            eprintln!("Caught panic: {}", message);
+            ph.print(format!(
+                "WARNING: `hexavalent` caught panic (in `{}`): {}\0",
+                ctxt_msg, message
+            ));
             Err(())
         }
     }
