@@ -6,7 +6,7 @@
 //!
 //! ```rust
 //! use hexavalent::PluginHandle;
-//! use hexavalent::print::ChannelMessage;
+//! use hexavalent::print::events::ChannelMessage;
 //!
 //! fn print_welcome_message(ph: PluginHandle<'_>) -> Result<(), ()> {
 //!     ph.emit_print(ChannelMessage, ["hexavalent\0", "Plugin started!\0", "@\0", "\0"])
@@ -132,6 +132,5 @@ macro_rules! print_event {
     };
 }
 
-mod impls;
-
-pub use impls::*;
+/// Print event types.
+pub mod events;

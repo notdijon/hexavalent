@@ -174,7 +174,7 @@ impl<'ph> PluginHandle<'ph> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::print::ChannelMessage;
+    /// use hexavalent::print::events::ChannelMessage;
     ///
     /// fn print_fake_message(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
     ///     ph.emit_print(ChannelMessage, [user, text, "@\0", "$\0"])
