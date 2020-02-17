@@ -39,6 +39,7 @@ pub mod internal;
 
 pub mod mode;
 pub mod print;
+pub mod strip;
 
 pub use plugin::{HexchatPlugin, PluginHandle};
 

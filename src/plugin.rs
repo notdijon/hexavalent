@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::convert::TryInto;
+use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::c_char;
 use std::ptr;
@@ -10,6 +11,7 @@ use libc::time_t;
 use crate::ffi::{hexchat_plugin, int_to_result, StrExt};
 use crate::mode;
 use crate::print::{EventAttrs, PrintEvent};
+use crate::strip;
 
 /// Must be implemented by all HexChat plugins.
 ///
@@ -506,12 +508,60 @@ impl<'ph> PluginHandle<'ph> {
         }
     }
 
-    /* TODO
-        hexchat_send_modes,
-        hexchat_nickcmp,
-        hexchat_strip,
-        hexchat_free,
-    */
+    /// Strips mIRC colors and/or text attributes (bold, underline, etc.) from a string.
+    ///
+    /// Analogous to [`hexchat_strip`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_strip).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::strip::{MircColors, TextAttrs};
+    ///
+    /// fn strip_example(ph: PluginHandle<'_>) {
+    ///     let orig = "\x0312Blue\x03 \x02Bold!\x02";
+    ///
+    ///     let strip_all = ph.strip(orig, MircColors::Remove, TextAttrs::Remove);
+    ///     assert_eq!(strip_all.unwrap(), "Blue Bold!");
+    ///
+    ///     let strip_colors = ph.strip(orig, MircColors::Remove, TextAttrs::Keep);
+    ///     assert_eq!(strip_colors.unwrap(), "Blue \x02Bold!\x02");
+    /// }
+    /// ```
+    pub fn strip(
+        self,
+        str: &str,
+        mirc: strip::MircColors,
+        attrs: strip::TextAttrs,
+    ) -> Result<String, ()> {
+        str.with_cstr(|str| {
+            let mirc_flag = match mirc {
+                strip::MircColors::Keep => 0,
+                strip::MircColors::Remove => 1,
+            } << 0;
+            let attrs_flag = match attrs {
+                strip::TextAttrs::Keep => 0,
+                strip::TextAttrs::Remove => 1,
+            } << 1;
+            let flags = mirc_flag | attrs_flag;
+
+            // Safety: handle is always valid
+            let stripped_ptr =
+                unsafe { ((*self.handle).hexchat_strip)(self.handle, str.as_ptr(), -1, flags) };
+
+            if stripped_ptr.is_null() {
+                return Err(());
+            }
+
+            // Safety: handle is always valid; stripped_ptr was returned from hexchat_strip
+            defer! { unsafe { ((*self.handle).hexchat_free)(self.handle, stripped_ptr as *mut _) } };
+
+            // Safety: hexchat_strip returns a valid pointer or null; temporary is immediately copied to an owned string
+            let stripped = unsafe { CStr::from_ptr(stripped_ptr).to_str().map(|s| s.to_owned()) };
+
+            Ok(stripped.unwrap_or_else(|e| panic!("hexchat_strip returned invalid UTF8: {}", e)))
+        })
+    }
 }
 
 /// [Getting Information](https://hexchat.readthedocs.io/en/latest/plugins.html#getting-information)
