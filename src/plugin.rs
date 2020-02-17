@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::os::raw::c_char;
 use std::ptr;
@@ -412,6 +413,50 @@ impl<'ph> PluginHandle<'ph> {
                 )
             })
         })
+    }
+
+    /// Sends channel mode changes to targets in the current channel.
+    ///
+    /// Analogous to [`hexchat_send_modes`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_send_modes).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn op_users(ph: PluginHandle<'_>, users: &[&str]) {
+    ///     // sends `MODE <users> +o`
+    ///     ph.send_modes(users, true, b'o');
+    /// }
+    ///
+    /// fn unban_user(ph: PluginHandle<'_>, user: &str) {
+    ///     // sends `MODE <user> -b`
+    ///     ph.send_modes(&[user], false, b'b');
+    /// }
+    /// ```
+    pub fn send_modes(self, targets: &[impl AsRef<str>], add_mode: bool, mode_char: u8) {
+        let targets: Vec<_> = targets.iter().map(|t| t.as_ref().into_cstr()).collect();
+        let mut targets: Vec<*const c_char> = targets.iter().map(|t| t.as_ptr()).collect();
+        let ntargets = targets
+            .len()
+            .try_into()
+            .unwrap_or_else(|e| panic!("Too many send_modes targets: {}", e));
+
+        let sign = if add_mode { b'+' } else { b'-' } as c_char;
+
+        let mode = mode_char as c_char;
+
+        // Safety: handle is always valid
+        unsafe {
+            ((*self.handle).hexchat_send_modes)(
+                self.handle,
+                targets.as_mut_ptr(),
+                ntargets,
+                0,
+                sign,
+                mode,
+            )
+        }
     }
 
     /* TODO
