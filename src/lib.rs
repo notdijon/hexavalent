@@ -37,6 +37,7 @@ mod state;
 #[doc(hidden)]
 pub mod internal;
 
+pub mod mode;
 pub mod print;
 
 pub use plugin::{HexchatPlugin, PluginHandle};

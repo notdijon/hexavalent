@@ -8,6 +8,7 @@ use std::time::UNIX_EPOCH;
 use libc::time_t;
 
 use crate::ffi::{hexchat_plugin, int_to_result, StrExt};
+use crate::mode;
 use crate::print::{EventAttrs, PrintEvent};
 
 /// Must be implemented by all HexChat plugins.
@@ -424,18 +425,19 @@ impl<'ph> PluginHandle<'ph> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
+    /// use hexavalent::mode::Sign;
     ///
     /// fn op_users(ph: PluginHandle<'_>, users: &[&str]) {
     ///     // sends `MODE <users> +o`
-    ///     ph.send_modes(users, true, b'o');
+    ///     ph.send_modes(users, Sign::Add, b'o');
     /// }
     ///
     /// fn unban_user(ph: PluginHandle<'_>, user: &str) {
     ///     // sends `MODE <user> -b`
-    ///     ph.send_modes(&[user], false, b'b');
+    ///     ph.send_modes(&[user], Sign::Remove, b'b');
     /// }
     /// ```
-    pub fn send_modes(self, targets: &[impl AsRef<str>], add_mode: bool, mode_char: u8) {
+    pub fn send_modes(self, targets: &[impl AsRef<str>], sign: mode::Sign, mode_char: u8) {
         let targets: Vec<_> = targets.iter().map(|t| t.as_ref().into_cstr()).collect();
         let mut targets: Vec<*const c_char> = targets.iter().map(|t| t.as_ptr()).collect();
         let ntargets = targets
@@ -443,7 +445,10 @@ impl<'ph> PluginHandle<'ph> {
             .try_into()
             .unwrap_or_else(|e| panic!("Too many send_modes targets: {}", e));
 
-        let sign = if add_mode { b'+' } else { b'-' } as c_char;
+        let sign = match sign {
+            mode::Sign::Add => b'+',
+            mode::Sign::Remove => b'-',
+        } as c_char;
 
         let mode = mode_char as c_char;
 
