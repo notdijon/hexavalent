@@ -119,7 +119,7 @@ impl<'ph> PluginHandle<'ph> {
 
 /// [General Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#general-functions)
 impl<'ph> PluginHandle<'ph> {
-    /// Prints text to the current tab. Text may contain mIRC color codes.
+    /// Prints text to the current tab. Text may contain mIRC color codes and formatting.
     ///
     /// Analogous to [`hexchat_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_print).
     ///
