@@ -161,11 +161,6 @@ impl<'ph> PluginHandle<'ph> {
 
     /// Emits a print event.
     ///
-    /// Returns whether emission succeeded or failed.
-    ///
-    /// A list of print events can be found in HexChat, under Settings > Text Events.
-    /// You can also look at the implementations of [`PrintEvent`](print/trait.PrintEvent.html).
-    ///
     /// If you do not know the print event's type statically, use [`emit_print_dyn`](struct.PluginHandle.html#method.emit_print_dyn).
     ///
     /// Analogous to [`hexchat_emit_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print).
@@ -215,11 +210,6 @@ impl<'ph> PluginHandle<'ph> {
     }
 
     /// Emits a print event, with dynamic type.
-    ///
-    /// Returns whether emission succeeded or failed.
-    ///
-    /// A list of print events can be found in HexChat, under Settings > Text Events.
-    /// You can also look at the implementations of [`PrintEvent`](print/trait.PrintEvent.html).
     ///
     /// Prefer [`emit_print`](struct.PluginHandle.html#method.emit_print) if you know the print event's type statically.
     ///
