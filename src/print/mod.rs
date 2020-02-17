@@ -14,7 +14,48 @@
 //! ``````
 
 use std::ffi::CStr;
+use std::marker::PhantomData;
 use std::os::raw::c_char;
+use std::time::SystemTime;
+
+/// Attributes associated with a print event.
+///
+/// Analogous to [`hexchat_event_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print_attrs).
+///
+/// # Examples
+///
+/// ```rust
+/// use hexavalent::PluginHandle;
+/// use hexavalent::print::EventAttrs;
+/// use hexavalent::print::events::ChannelMessage;
+///
+/// fn print_fake_message_like_its_1979(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
+///     let attrs = EventAttrs::new(std::time::UNIX_EPOCH + std::time::Duration::from_secs(86400 * 365 * 9));
+///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
+/// }
+/// ```
+///
+/// TODO use hook_print_attrs
+#[derive(Copy, Clone)]
+pub struct EventAttrs<'a> {
+    time: SystemTime,
+    _lifetime: PhantomData<&'a ()>,
+}
+
+impl<'a> EventAttrs<'a> {
+    /// Creates a new `EventAttrs` from the specified event timestamp.
+    pub fn new(time: SystemTime) -> Self {
+        Self {
+            time,
+            _lifetime: PhantomData,
+        }
+    }
+
+    /// Gets the timestamp associated with this event.
+    pub fn time(self) -> SystemTime {
+        self.time
+    }
+}
 
 /// Trait implemented by all print event types.
 ///

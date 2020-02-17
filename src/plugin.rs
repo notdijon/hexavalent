@@ -1,9 +1,12 @@
 use std::marker::PhantomData;
 use std::os::raw::c_char;
 use std::ptr;
+use std::time::UNIX_EPOCH;
+
+use libc::time_t;
 
 use crate::ffi::{hexchat_plugin, int_to_result, StrExt};
-use crate::print::PrintEvent;
+use crate::print::{EventAttrs, PrintEvent};
 
 /// Must be implemented by all HexChat plugins.
 ///
@@ -263,15 +266,159 @@ impl<'ph> PluginHandle<'ph> {
             })
         })
     }
+
+    /// Emits a print event, specifying its attributes.
+    ///
+    /// If you do not know the print event's type statically, use [`emit_print_attrs_dyn`](struct.PluginHandle.html#method.emit_print_attrs_dyn).
+    ///
+    /// Analogous to [`hexchat_emit_print_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print_attrs).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::print::EventAttrs;
+    /// use hexavalent::print::events::ChannelMessage;
+    ///
+    /// fn print_fake_message_like_its_1979(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
+    ///     let attrs = EventAttrs::new(std::time::UNIX_EPOCH + std::time::Duration::from_secs(86400 * 365 * 9));
+    ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
+    /// }
+    /// ```
+    pub fn emit_print_attrs<'a, E: PrintEvent<'a>>(
+        self,
+        event: E,
+        attrs: EventAttrs<'_>,
+        args: <E as PrintEvent<'a>>::Args,
+    ) -> Result<(), ()> {
+        let _ = event;
+        E::args_to_c(args, |args| {
+            assert!(
+                args.len() <= 4,
+                "bug in hexavalent - more than 4 args from PrintEvent"
+            );
+
+            let args: [*const c_char; 4] = [
+                args.get(0).map_or_else(ptr::null, |a| a.as_ptr()),
+                args.get(1).map_or_else(ptr::null, |a| a.as_ptr()),
+                args.get(2).map_or_else(ptr::null, |a| a.as_ptr()),
+                args.get(3).map_or_else(ptr::null, |a| a.as_ptr()),
+            ];
+
+            let since_unix_epoch = attrs
+                .time()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_else(|e| panic!("Invalid date in event attrs: {}", e))
+                .as_secs() as time_t;
+
+            // Safety: `handle` is always valid
+            int_to_result(unsafe {
+                let event_attrs = ((*self.handle).hexchat_event_attrs_create)(self.handle);
+                defer! { ((*self.handle).hexchat_event_attrs_free)(self.handle, event_attrs) };
+
+                ptr::write(
+                    &mut (*event_attrs).server_time_utc as *mut _,
+                    since_unix_epoch,
+                );
+
+                self.print((*event_attrs).server_time_utc.to_string().as_str()); // todo remove
+
+                ((*self.handle).hexchat_emit_print_attrs)(
+                    self.handle,
+                    event_attrs,
+                    E::NAME,
+                    args[0],
+                    args[1],
+                    args[2],
+                    args[3],
+                    ptr::null::<c_char>(),
+                )
+            })
+        })
+    }
+
+    /// Emits a print event, specifying its attributes, with dynamic type.
+    ///
+    /// Prefer [`emit_print_attrs`](struct.PluginHandle.html#method.emit_print_attrs) if you know the print event's type statically.
+    ///
+    /// Analogous to [`hexchat_emit_print_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print_attrs).
+    ///
+    /// # Panics
+    ///
+    /// If `args` contains more than 4 elements. (No text event takes more than 4 arguments.)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::print::EventAttrs;
+    ///
+    /// fn print_fake_message_like_its_1979(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
+    ///     let attrs = EventAttrs::new(std::time::UNIX_EPOCH + std::time::Duration::from_secs(86400 * 365 * 9));
+    ///     ph.emit_print_attrs_dyn("Channel Message\0", attrs, &[user, text, "@\0", "$\0"])
+    /// }
+    /// ```
+    pub fn emit_print_attrs_dyn(
+        self,
+        event: &str,
+        attrs: EventAttrs<'_>,
+        args: &[&str],
+    ) -> Result<(), ()> {
+        assert!(
+            args.len() <= 4,
+            "passed {} args to text event {}, but no text event takes more than 4 args",
+            args.len(),
+            event
+        );
+        event.with_cstr(|event| {
+            let args = [
+                args.get(0).map(|&s| s.into_cstr()),
+                args.get(1).map(|&s| s.into_cstr()),
+                args.get(2).map(|&s| s.into_cstr()),
+                args.get(3).map(|&s| s.into_cstr()),
+            ];
+            let args: [*const c_char; 4] = [
+                args[0].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+                args[1].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+                args[2].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+                args[3].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+            ];
+
+            let since_unix_epoch = attrs
+                .time()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_else(|e| panic!("Invalid date in event attrs: {}", e))
+                .as_secs() as time_t;
+
+            // Safety: `handle` is always valid
+            int_to_result(unsafe {
+                let event_attrs = ((*self.handle).hexchat_event_attrs_create)(self.handle);
+                defer! { ((*self.handle).hexchat_event_attrs_free)(self.handle, event_attrs) };
+
+                ptr::write(
+                    &mut (*event_attrs).server_time_utc as *mut _,
+                    since_unix_epoch,
+                );
+
+                ((*self.handle).hexchat_emit_print_attrs)(
+                    self.handle,
+                    event_attrs,
+                    event.as_ptr(),
+                    args[0],
+                    args[1],
+                    args[2],
+                    args[3],
+                    ptr::null::<c_char>(),
+                )
+            })
+        })
+    }
+
     /* TODO
-        hexchat_emit_print,
-        hexchat_emit_print_attrs,
         hexchat_send_modes,
         hexchat_nickcmp,
         hexchat_strip,
         hexchat_free,
-        hexchat_event_attrs_create,
-        hexchat_event_attrs_free,
     */
 }
 

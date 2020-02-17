@@ -3,7 +3,7 @@ use std::ptr;
 
 macro_rules! defer {
     ($action:expr) => {
-        let _defer = crate::macros::RunOnDrop::new(|| {
+        let _defer = crate::macros::RunOnDrop::new(move || {
             $action;
         });
     };
