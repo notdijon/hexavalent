@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::os::raw::c_char;
@@ -456,6 +457,47 @@ impl<'ph> PluginHandle<'ph> {
                 sign,
                 mode,
             )
+        }
+    }
+
+    /// Performs a comparison of nicknames or channel names, compliant with RFC1459.
+    ///
+    /// [RFC1459 says](https://tools.ietf.org/html/rfc1459#section-2.2):
+    ///
+    /// > Because of IRC's scandanavian origin, the characters {}| are
+    /// > considered to be the lower case equivalents of the characters \[\]\\,
+    /// > respectively. This is a critical issue when determining the
+    /// > equivalence of two nicknames.
+    ///
+    /// Note that, like other functions taking `&str`, this function will allocate if the provided strings are not already null-terminated.
+    /// This may be expensive; if you are calling this function in a loop, consider implementing your own RFC1459 string comparison.
+    /// (This function is provided mainly for API completeness.)
+    ///
+    /// Analogous to [`hexchat_nickcmp`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_nickcmp).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn sort_nicknames(ph: PluginHandle<'_>, nicks: &mut [impl AsRef<str>]) {
+    ///     nicks.sort_by(|n1, n2| ph.nickcmp(n1.as_ref(), n2.as_ref()));
+    /// }
+    /// ```
+    pub fn nickcmp(self, s1: &str, s2: &str) -> Ordering {
+        let s1 = s1.into_cstr();
+        let s2 = s2.into_cstr();
+
+        // Safety: handle is always valid
+        let ordering =
+            unsafe { ((*self.handle).hexchat_nickcmp)(self.handle, s1.as_ptr(), s2.as_ptr()) };
+
+        if ordering < 0 {
+            Ordering::Less
+        } else if ordering > 0 {
+            Ordering::Greater
+        } else {
+            Ordering::Equal
         }
     }
 
