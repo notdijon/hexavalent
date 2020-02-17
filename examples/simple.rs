@@ -8,6 +8,8 @@ struct SimplePlugin;
 impl HexchatPlugin for SimplePlugin {
     fn init(&self, ph: PluginHandle<'_>) {
         ph.print("Plugin loaded successfully!\0");
+
+        // todo make this a simple message counter
     }
 
     fn deinit(&self, ph: PluginHandle<'_>) {
