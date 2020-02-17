@@ -79,7 +79,7 @@ pub trait HexchatPlugin: 'static {
 ///
 /// # Examples
 ///
-/// All functions which take `&str` arguments will allocate if the string is not null-terminated, and panic if the string contains interior nulls.
+/// All functions which take `&str`/`impl AsRef<str>` arguments will allocate if the string is not null-terminated, and panic if the string contains interior nulls.
 ///
 /// ```rust
 /// # fn print_some_stuff(ph: hexavalent::PluginHandle<'_>) {
@@ -231,7 +231,7 @@ impl<'ph> PluginHandle<'ph> {
     ///     ph.emit_print_dyn("Channel Message\0", &[user, text, "@\0", "$\0"])
     /// }
     /// ```
-    pub fn emit_print_dyn(self, event: &str, args: &[&str]) -> Result<(), ()> {
+    pub fn emit_print_dyn(self, event: &str, args: &[impl AsRef<str>]) -> Result<(), ()> {
         assert!(
             args.len() <= 4,
             "passed {} args to text event {}, but no text event takes more than 4 args",
@@ -240,10 +240,10 @@ impl<'ph> PluginHandle<'ph> {
         );
         event.with_cstr(|event| {
             let args = [
-                args.get(0).map(|&s| s.into_cstr()),
-                args.get(1).map(|&s| s.into_cstr()),
-                args.get(2).map(|&s| s.into_cstr()),
-                args.get(3).map(|&s| s.into_cstr()),
+                args.get(0).map(|s| s.as_ref().into_cstr()),
+                args.get(1).map(|s| s.as_ref().into_cstr()),
+                args.get(2).map(|s| s.as_ref().into_cstr()),
+                args.get(3).map(|s| s.as_ref().into_cstr()),
             ];
             let args: [*const c_char; 4] = [
                 args[0].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
@@ -362,7 +362,7 @@ impl<'ph> PluginHandle<'ph> {
         self,
         event: &str,
         attrs: EventAttrs<'_>,
-        args: &[&str],
+        args: &[impl AsRef<str>],
     ) -> Result<(), ()> {
         assert!(
             args.len() <= 4,
@@ -372,10 +372,10 @@ impl<'ph> PluginHandle<'ph> {
         );
         event.with_cstr(|event| {
             let args = [
-                args.get(0).map(|&s| s.into_cstr()),
-                args.get(1).map(|&s| s.into_cstr()),
-                args.get(2).map(|&s| s.into_cstr()),
-                args.get(3).map(|&s| s.into_cstr()),
+                args.get(0).map(|s| s.as_ref().into_cstr()),
+                args.get(1).map(|s| s.as_ref().into_cstr()),
+                args.get(2).map(|s| s.as_ref().into_cstr()),
+                args.get(3).map(|s| s.as_ref().into_cstr()),
             ];
             let args: [*const c_char; 4] = [
                 args[0].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
