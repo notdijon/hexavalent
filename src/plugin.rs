@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
+use std::os::raw::c_char;
+use std::ptr;
 
-use crate::ffi::{hexchat_plugin, StrExt};
+use crate::ffi::{hexchat_plugin, int_to_result, StrExt};
+use crate::print::PrintEvent;
 
 /// Must be implemented by all HexChat plugins.
 ///
@@ -156,6 +159,120 @@ impl<'ph> PluginHandle<'ph> {
         })
     }
 
+    /// Emits a print event.
+    ///
+    /// Returns whether emission succeeded or failed.
+    ///
+    /// A list of print events can be found in HexChat, under Settings > Text Events.
+    /// You can also look at the implementations of [`PrintEvent`](print/trait.PrintEvent.html).
+    ///
+    /// If you do not know the print event's type statically, use [`emit_print_dyn`](struct.PluginHandle.html#method.emit_print_dyn).
+    ///
+    /// Analogous to [`hexchat_emit_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::print::ChannelMessage;
+    ///
+    /// fn print_fake_message(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
+    ///     ph.emit_print(ChannelMessage, [user, text, "@\0", "$\0"])
+    /// }
+    /// ```
+    pub fn emit_print<'a, E: PrintEvent<'a>>(
+        self,
+        event: E,
+        args: <E as PrintEvent<'a>>::Args,
+    ) -> Result<(), ()> {
+        let _ = event;
+        E::args_to_c(args, |args| {
+            assert!(
+                args.len() <= 4,
+                "bug in hexavalent - more than 4 args from PrintEvent"
+            );
+
+            let args: [*const c_char; 4] = [
+                args.get(0).map_or_else(ptr::null, |a| a.as_ptr()),
+                args.get(1).map_or_else(ptr::null, |a| a.as_ptr()),
+                args.get(2).map_or_else(ptr::null, |a| a.as_ptr()),
+                args.get(3).map_or_else(ptr::null, |a| a.as_ptr()),
+            ];
+
+            // Safety: `handle` is always valid
+            int_to_result(unsafe {
+                ((*self.handle).hexchat_emit_print)(
+                    self.handle,
+                    E::NAME,
+                    args[0],
+                    args[1],
+                    args[2],
+                    args[3],
+                    ptr::null::<c_char>(),
+                )
+            })
+        })
+    }
+
+    /// Emits a print event, with dynamic type.
+    ///
+    /// Returns whether emission succeeded or failed.
+    ///
+    /// A list of print events can be found in HexChat, under Settings > Text Events.
+    /// You can also look at the implementations of [`PrintEvent`](print/trait.PrintEvent.html).
+    ///
+    /// Prefer [`emit_print`](struct.PluginHandle.html#method.emit_print) if you know the print event's type statically.
+    ///
+    /// Analogous to [`hexchat_emit_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print).
+    ///
+    /// # Panics
+    ///
+    /// If `args` contains more than 4 elements. (No text event takes more than 4 arguments.)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn print_fake_message(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
+    ///     ph.emit_print_dyn("Channel Message\0", &[user, text, "@\0", "$\0"])
+    /// }
+    /// ```
+    pub fn emit_print_dyn(self, event: &str, args: &[&str]) -> Result<(), ()> {
+        assert!(
+            args.len() <= 4,
+            "passed {} args to text event {}, but no text event takes more than 4 args",
+            args.len(),
+            event
+        );
+        event.with_cstr(|event| {
+            let args = [
+                args.get(0).map(|&s| s.into_cstr()),
+                args.get(1).map(|&s| s.into_cstr()),
+                args.get(2).map(|&s| s.into_cstr()),
+                args.get(3).map(|&s| s.into_cstr()),
+            ];
+            let args: [*const c_char; 4] = [
+                args[0].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+                args[1].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+                args[2].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+                args[3].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+            ];
+
+            // Safety: `handle` is always valid
+            int_to_result(unsafe {
+                ((*self.handle).hexchat_emit_print)(
+                    self.handle,
+                    event.as_ptr(),
+                    args[0],
+                    args[1],
+                    args[2],
+                    args[3],
+                    ptr::null::<c_char>(),
+                )
+            })
+        })
+    }
     /* TODO
         hexchat_emit_print,
         hexchat_emit_print_attrs,
