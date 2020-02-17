@@ -1,11 +1,11 @@
 #![crate_type = "cdylib"]
 
-use hexavalent::{export_plugin, HexchatPlugin, PluginHandle};
+use hexavalent::{export_plugin, Plugin, PluginHandle};
 
 #[derive(Default)]
 struct SimplePlugin;
 
-impl HexchatPlugin for SimplePlugin {
+impl Plugin for SimplePlugin {
     fn init(&self, ph: PluginHandle<'_>) {
         ph.print("Plugin loaded successfully!\0");
 

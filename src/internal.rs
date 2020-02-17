@@ -4,7 +4,7 @@
 
 use std::os::raw::c_int;
 
-use crate::plugin::HexchatPlugin;
+use crate::plugin::Plugin;
 use crate::state;
 
 /// UNSTABLE: do not use this type directly.
@@ -21,7 +21,7 @@ pub use crate::ffi::hexchat_plugin;
 ///
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
 #[doc(hidden)]
-pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
+pub unsafe fn hexchat_plugin_init<P: Plugin + Default>(
     plugin_handle: *mut hexchat_plugin,
 ) -> c_int {
     state::hexchat_plugin_init::<P>(plugin_handle)
@@ -35,6 +35,6 @@ pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
 ///
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
 #[doc(hidden)]
-pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
+pub unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
     state::hexchat_plugin_deinit::<P>(plugin_handle)
 }

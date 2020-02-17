@@ -1,6 +1,6 @@
 # hexavalent
 
-Write Hexchat plugins in Rust.
+Write HexChat plugins in Rust.
 
 Read [the docs](https://docs.rs/hexavalent) or see the examples directory to get started.
 

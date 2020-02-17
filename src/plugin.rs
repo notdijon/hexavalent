@@ -21,7 +21,7 @@ use crate::strip;
 ///
 /// TODO add example when more stuff works
 ///  printing statistics would be good here
-pub trait HexchatPlugin: 'static {
+pub trait Plugin: 'static {
     /// Initialize your plugin.
     ///
     /// Use this method to perform any work that should be done when your plugin is loaded,
@@ -32,11 +32,11 @@ pub trait HexchatPlugin: 'static {
     /// # Examples
     ///
     /// ```rust
-    /// use hexavalent::{HexchatPlugin, PluginHandle};
+    /// use hexavalent::{Plugin, PluginHandle};
     ///
     /// struct MyPlugin;
     ///
-    /// impl HexchatPlugin for MyPlugin {
+    /// impl Plugin for MyPlugin {
     ///     fn init(&self, ph: PluginHandle<'_>) {
     ///         ph.print("Plugin loaded successfully!\0");
     ///     }
@@ -49,7 +49,7 @@ pub trait HexchatPlugin: 'static {
     /// Use this method to perform any work that should be done when your plugin is unloaded,
     /// such as printing shutdown messages or statistics.
     ///
-    /// You do not need to explicitly `unhook` any hooks in this method, as remaining hooks are
+    /// You do not need to explicitly [`unhook`](struct.PluginHandle.html#method.unhook) any hooks in this method, as remaining hooks are
     /// automatically removed by HexChat when your plugin finishes unloading.
     ///
     /// Analogous to [`hexchat_plugin_deinit`](https://hexchat.readthedocs.io/en/latest/plugins.html#sample-plugin).
@@ -57,11 +57,11 @@ pub trait HexchatPlugin: 'static {
     /// # Examples
     ///
     /// ```rust
-    /// use hexavalent::{HexchatPlugin, PluginHandle};
+    /// use hexavalent::{Plugin, PluginHandle};
     ///
     /// struct MyPlugin;
     ///
-    /// impl HexchatPlugin for MyPlugin {
+    /// impl Plugin for MyPlugin {
     ///     fn init(&self, _: PluginHandle<'_>) {}
     ///
     ///     fn deinit(&self, ph: PluginHandle<'_>) {
@@ -76,15 +76,18 @@ pub trait HexchatPlugin: 'static {
 
 /// Interacts with HexChat's plugin API.
 ///
-/// Cannot be constructed in user code, but is passed into [`init`](trait.HexchatPlugin.html#tymethod.init), [`deinit`](trait.HexchatPlugin.html#method.deinit),
-/// and hook callbacks such as [`hook_print`](struct.PluginHandle.html#method.hook_print).
+/// Cannot be constructed in user code, but is passed into
+/// [`Plugin::init`](trait.Plugin.html#tymethod.init),
+/// [`Plugin::deinit`](trait.Plugin.html#method.deinit),
+/// and hook callbacks such as [`hook_command`](struct.PluginHandle.html#method.hook_command).
 ///
 /// Most of HexChat's [functions](https://hexchat.readthedocs.io/en/latest/plugins.html#functions) are available as struct methods,
 /// without the `hexchat_` prefix.
 ///
 /// # Examples
 ///
-/// All functions which take `&str`/`impl AsRef<str>` arguments will allocate if the string is not null-terminated, and panic if the string contains interior nulls.
+/// All functions which take `&str`/`impl AsRef<str>` arguments will allocate if the string is not null-terminated,
+/// and panic if the string contains interior nulls.
 ///
 /// ```rust
 /// # fn print_some_stuff(ph: hexavalent::PluginHandle<'_>) {

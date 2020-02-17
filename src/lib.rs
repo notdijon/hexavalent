@@ -1,10 +1,10 @@
-//! Write Hexchat plugins in Rust.
+//! Write HexChat plugins in Rust.
 //!
-//! To create your plugin, make a library crate with `crate-type = "cdylib"`.
-//! Define a type to hold any state your plugin will need.
-//! Implement the [`HexchatPlugin`](trait.HexchatPlugin.html) trait for plugin (de)initialization,
-//! and the `Default` trait so this library can create an instance of your plugin.
-//! Finally,  call [`export_plugin`](macro.export_plugin.html) with the type of your plugin, its name, description, and version.
+//! To create your plugin:
+//! - Make a library crate with [`crate-type = "cdylib"`](https://doc.rust-lang.org/cargo/reference/manifest.html#building-dynamic-or-static-libraries).
+//! - Define a type, e.g. `struct MyPlugin`, to hold any state your plugin will need.
+//! - Implement the [`Plugin`](trait.Plugin.html) and `Default` traits for `MyPlugin`.
+//! - Call [`export_plugin`](macro.export_plugin.html) with the type `MyPlugin`, its name, description, and version.
 //!
 //! On Windows, it is recommended to add `-C target-feature=+crt-static` to your `RUSTFLAGS`,
 //! for example in [`<project root>/.cargo/config`](https://doc.rust-lang.org/cargo/reference/config.html).
@@ -22,7 +22,7 @@
 //! (Although it is never explicitly stated that this is true, HexChat's plugin documentation says nothing of synchronization,
 //! and none of the example plugins have any. It also seems true in practice.)
 //!
-//! In debug node (specifically, when `debug_assertions` is enabled), the current thread ID will be checked every time the plugin is invoked,
+//! In debug mode (specifically, when `debug_assertions` is enabled), the current thread ID will be checked every time the plugin is invoked,
 //! which can help detect misbehavior.
 
 #![warn(missing_docs)]
@@ -41,23 +41,23 @@ pub mod mode;
 pub mod print;
 pub mod strip;
 
-pub use plugin::{HexchatPlugin, PluginHandle};
+pub use plugin::{Plugin, PluginHandle};
 
 /// Defines the necessary exports for HexChat to load your plugin.
 ///
-/// Do not define a `main` function; initialization should be performed in your plugin's [`init`](trait.HexchatPlugin.html#tymethod.init) function.
+/// Do not define a `main` function; initialization should be performed in your plugin's [`Plugin::init`](trait.Plugin.html#tymethod.init) function.
 ///
-/// The type passed to `export_plugin` must implement both [`HexchatPlugin`](trait.HexchatPlugin.html) and `Default`.
+/// The type passed to `export_plugin` must implement both [`Plugin`](trait.Plugin.html) and `Default`.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use hexavalent::{HexchatPlugin, PluginHandle, export_plugin};
+/// use hexavalent::{Plugin, PluginHandle, export_plugin};
 ///
 /// #[derive(Default)]
 /// struct NoopPlugin;
 ///
-/// impl HexchatPlugin for NoopPlugin {
+/// impl Plugin for NoopPlugin {
 ///     fn init(&self, ph: PluginHandle<'_>) {
 ///         ph.print("Hello world!\0");
 ///     }
@@ -69,12 +69,12 @@ pub use plugin::{HexchatPlugin, PluginHandle};
 /// Cargo's environment variables can also be used to copy `name`, `description`, and `version` from `Cargo.toml`.
 ///
 /// ```rust
-/// use hexavalent::{HexchatPlugin, PluginHandle, export_plugin};
+/// use hexavalent::{Plugin, PluginHandle, export_plugin};
 ///
 /// #[derive(Default)]
 /// struct NoopPlugin;
 ///
-/// impl HexchatPlugin for NoopPlugin {
+/// impl Plugin for NoopPlugin {
 ///     fn init(&self, ph: PluginHandle<'_>) {
 ///         ph.print("Hello world!\0");
 ///     }

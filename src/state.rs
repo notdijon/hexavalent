@@ -7,7 +7,7 @@ use std::thread::{self, ThreadId};
 use std::usize;
 
 use crate::ffi::{catch_and_log_unwind, hexchat_plugin, result_to_int};
-use crate::plugin::{HexchatPlugin, PluginHandle};
+use crate::plugin::{Plugin, PluginHandle};
 
 const NO_READERS: usize = 0;
 const LOCKED: usize = usize::MAX;
@@ -50,7 +50,7 @@ static PLUGIN: ExtSync<Option<(ThreadId, Box<dyn Any>, *mut hexchat_plugin)>> =
 /// # Panics
 ///
 /// If the plugin is running and currently holds a reference to the plugin state.
-pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
+pub unsafe fn hexchat_plugin_init<P: Plugin + Default>(
     plugin_handle: *mut hexchat_plugin,
 ) -> c_int {
     // Safety: `plugin_handle` points to a valid `hexchat_plugin`
@@ -82,7 +82,7 @@ pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
 /// # Panics
 ///
 /// If the plugin is running and currently holds a reference to the plugin state.
-pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
+pub unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
     // Safety: `plugin_handle` points to a valid `hexchat_plugin`
     let ph = PluginHandle::new(plugin_handle);
     result_to_int(catch_and_log_unwind(ph, "deinit", || {
@@ -108,7 +108,7 @@ pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(plugin_handle: *mut hexcha
 /// If the plugin is currently being initialized or deinitialized.
 ///
 /// If the initialized plugin is not of type `P`.
-pub fn with_plugin_state<P: HexchatPlugin, R>(f: impl FnOnce(&P, PluginHandle<'_>) -> R) -> R {
+pub fn with_plugin_state<P: Plugin, R>(f: impl FnOnce(&P, PluginHandle<'_>) -> R) -> R {
     // usually this check would be looped to account for multiple reader threads trying to acquire it at the same time
     // but we expect there to be only one thread, so panic instead
     let old_state = STATE.load(Ordering::Relaxed);
