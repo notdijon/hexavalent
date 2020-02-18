@@ -17,6 +17,7 @@ libc = "0.2.66"
 [profile.release]
 lto = true
 codegen-units = 1
+debug = 1
 
 [[example]]
 name = "simple"
