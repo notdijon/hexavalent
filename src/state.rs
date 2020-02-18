@@ -35,7 +35,7 @@ impl<T> Deref for ExtSync<T> {
     }
 }
 
-/// Global handle to the user's plugin data and the global HexCHat plugin context.
+/// Global handle to the user's plugin data and the global HexChat plugin context.
 ///
 /// Only accessible outside this module via the safe interface `with_plugin_state`.
 static PLUGIN: ExtSync<Option<(ThreadId, Box<dyn Any>, *mut hexchat_plugin)>> =
