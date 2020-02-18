@@ -14,6 +14,10 @@ edition = "2018"
 [dependencies]
 libc = "0.2.66"
 
+[profile.release]
+lto = true
+codegen-units = 1
+
 [[example]]
 name = "simple"
 crate-type = ["cdylib"]
