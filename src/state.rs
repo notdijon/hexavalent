@@ -3,7 +3,6 @@ use std::cell::UnsafeCell;
 use std::ops::Deref;
 use std::os::raw::c_int;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::thread::{self, ThreadId};
 use std::usize;
 
 use crate::ffi::{catch_and_log_unwind, hexchat_plugin, result_to_int};
@@ -35,11 +34,17 @@ impl<T> Deref for ExtSync<T> {
     }
 }
 
+struct GlobalPlugin {
+    #[cfg(debug_assertions)]
+    thread_id: std::thread::ThreadId,
+    plugin: Box<dyn Any>,
+    plugin_handle: *mut hexchat_plugin,
+}
+
 /// Global handle to the user's plugin data and the global HexChat plugin context.
 ///
 /// Only accessible outside this module via the safe interface `with_plugin_state`.
-static PLUGIN: ExtSync<Option<(ThreadId, Box<dyn Any>, *mut hexchat_plugin)>> =
-    ExtSync(UnsafeCell::new(None));
+static PLUGIN: ExtSync<Option<GlobalPlugin>> = ExtSync(UnsafeCell::new(None));
 
 /// Initializes a plugin of type `P`.
 ///
@@ -62,11 +67,12 @@ pub unsafe fn hexchat_plugin_init<P: Plugin + Default>(
             defer! { STATE.store(NO_READERS, Ordering::SeqCst) };
 
             // Safety: STATE guarantees unique access to handles
-            *PLUGIN.get() = Some((
-                thread::current().id(),
-                Box::new(P::default()),
+            *PLUGIN.get() = Some(GlobalPlugin {
+                #[cfg(debug_assertions)]
+                thread_id: std::thread::current().id(),
+                plugin: Box::new(P::default()),
                 plugin_handle,
-            ));
+            });
         }
 
         with_plugin_state(|this: &P, ph| this.init(ph));
@@ -119,20 +125,22 @@ pub fn with_plugin_state<P: Plugin, R>(f: impl FnOnce(&P, PluginHandle<'_>) -> R
     defer! { STATE.fetch_sub(1, Ordering::SeqCst) };
 
     // Safety: STATE guarantees that there are only readers active
-    let (thread_id, user_handle, plugin_handle) = unsafe {
+    let global_plugin = unsafe {
         (&*PLUGIN.get())
             .as_ref()
             .unwrap_or_else(|| panic!("plugin invoked while uninitialized"))
     };
 
-    debug_assert_eq!(*thread_id, thread::current().id());
+    #[cfg(debug_assertions)]
+    debug_assert_eq!(global_plugin.thread_id, std::thread::current().id());
 
-    let user_handle = user_handle
+    let plugin = global_plugin
+        .plugin
         .downcast_ref()
         .unwrap_or_else(|| panic!("stored plugin is an unexpected type"));
 
     // Safety: we only store valid `plugin_handle`s in `PLUGIN`
-    let plugin_handle = unsafe { PluginHandle::new(*plugin_handle) };
+    let ph = unsafe { PluginHandle::new(global_plugin.plugin_handle) };
 
-    f(user_handle, plugin_handle)
+    f(plugin, ph)
 }
