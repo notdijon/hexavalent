@@ -160,7 +160,7 @@ macro_rules! print_event {
                     $(
                         c_args[$index].to_str().unwrap_or_else(|e| {
                             panic!(
-                                "Error parsing index {} of event '{}': {}",
+                                "Invalid UTF8 in field index {} of event '{}': {}",
                                 stringify!($index),
                                 $event_name,
                                 e,
