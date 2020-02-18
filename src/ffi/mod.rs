@@ -65,8 +65,6 @@ pub trait StrExt {
     type CSTR: AsRef<CStr>;
 
     fn into_cstr(self) -> Self::CSTR;
-
-    fn with_cstr<R>(self, f: impl FnOnce(&CStr) -> R) -> R;
 }
 
 impl<'a> StrExt for &'a str {
@@ -74,19 +72,10 @@ impl<'a> StrExt for &'a str {
 
     fn into_cstr(self) -> Self::CSTR {
         // check last byte up front to avoid scanning the string twice if it does not end with null
-        if self.as_bytes().last() == Some(&0) {
+        if self.as_bytes().last().copied() == Some(0) {
             Cow::Borrowed(CStr::from_bytes_with_nul(self.as_bytes()).unwrap())
         } else {
             Cow::Owned(CString::new(self).unwrap())
-        }
-    }
-
-    fn with_cstr<R>(self, f: impl FnOnce(&CStr) -> R) -> R {
-        // check last byte up front to avoid scanning the string twice if it does not end with null
-        if self.as_bytes().last() == Some(&0) {
-            f(CStr::from_bytes_with_nul(self.as_bytes()).unwrap())
-        } else {
-            f(CString::new(self).unwrap().as_ref())
         }
     }
 }
@@ -110,14 +99,6 @@ mod tests {
         let owner = "hello\0".into_cstr();
         assert_matches!(Cow::Borrowed(_), owner);
         assert_eq!(owner.as_ref(), cs("hello\0"));
-
-        "hello".with_cstr(|c| {
-            assert_eq!(c, cs("hello\0"));
-        });
-
-        "hello\0".with_cstr(|c| {
-            assert_eq!(c, cs("hello\0"));
-        });
     }
 
     #[test]

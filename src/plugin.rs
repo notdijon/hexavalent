@@ -139,12 +139,11 @@ impl<'ph> PluginHandle<'ph> {
     /// }
     /// ```
     pub fn print(self, text: &str) {
-        text.with_cstr(|text| {
-            // Safety: `handle` is always valid
-            unsafe {
-                ((*self.handle).hexchat_print)(self.handle, text.as_ptr());
-            }
-        });
+        let text = text.into_cstr();
+        // Safety: `handle` is always valid
+        unsafe {
+            ((*self.handle).hexchat_print)(self.handle, text.as_ptr());
+        }
     }
 
     /// Executes a command as if it were typed into HexChat's input box after a `/`.
@@ -162,12 +161,11 @@ impl<'ph> PluginHandle<'ph> {
     /// }
     /// ```
     pub fn command(self, cmd: &str) {
-        cmd.with_cstr(|cmd| {
-            // Safety: `handle` is always valid
-            unsafe {
-                ((*self.handle).hexchat_command)(self.handle, cmd.as_ptr());
-            }
-        })
+        let cmd = cmd.into_cstr();
+        // Safety: `handle` is always valid
+        unsafe {
+            ((*self.handle).hexchat_command)(self.handle, cmd.as_ptr());
+        }
     }
 
     /// Emits a print event.
@@ -246,32 +244,32 @@ impl<'ph> PluginHandle<'ph> {
             args.len(),
             event
         );
-        event.with_cstr(|event| {
-            let args = [
-                args.get(0).map(|s| s.as_ref().into_cstr()),
-                args.get(1).map(|s| s.as_ref().into_cstr()),
-                args.get(2).map(|s| s.as_ref().into_cstr()),
-                args.get(3).map(|s| s.as_ref().into_cstr()),
-            ];
-            let args: [*const c_char; 4] = [
-                args[0].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
-                args[1].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
-                args[2].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
-                args[3].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
-            ];
 
-            // Safety: `handle` is always valid
-            int_to_result(unsafe {
-                ((*self.handle).hexchat_emit_print)(
-                    self.handle,
-                    event.as_ptr(),
-                    args[0],
-                    args[1],
-                    args[2],
-                    args[3],
-                    ptr::null::<c_char>(),
-                )
-            })
+        let event = event.into_cstr();
+        let args = [
+            args.get(0).map(|s| s.as_ref().into_cstr()),
+            args.get(1).map(|s| s.as_ref().into_cstr()),
+            args.get(2).map(|s| s.as_ref().into_cstr()),
+            args.get(3).map(|s| s.as_ref().into_cstr()),
+        ];
+        let args: [*const c_char; 4] = [
+            args[0].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+            args[1].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+            args[2].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+            args[3].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+        ];
+
+        // Safety: `handle` is always valid
+        int_to_result(unsafe {
+            ((*self.handle).hexchat_emit_print)(
+                self.handle,
+                event.as_ptr(),
+                args[0],
+                args[1],
+                args[2],
+                args[3],
+                ptr::null::<c_char>(),
+            )
         })
     }
 
@@ -378,47 +376,47 @@ impl<'ph> PluginHandle<'ph> {
             args.len(),
             event
         );
-        event.with_cstr(|event| {
-            let args = [
-                args.get(0).map(|s| s.as_ref().into_cstr()),
-                args.get(1).map(|s| s.as_ref().into_cstr()),
-                args.get(2).map(|s| s.as_ref().into_cstr()),
-                args.get(3).map(|s| s.as_ref().into_cstr()),
-            ];
-            let args: [*const c_char; 4] = [
-                args[0].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
-                args[1].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
-                args[2].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
-                args[3].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
-            ];
 
-            let since_unix_epoch = attrs
-                .time()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_else(|e| panic!("Invalid date in event attrs: {}", e))
-                .as_secs() as time_t;
+        let event = event.into_cstr();
+        let args = [
+            args.get(0).map(|s| s.as_ref().into_cstr()),
+            args.get(1).map(|s| s.as_ref().into_cstr()),
+            args.get(2).map(|s| s.as_ref().into_cstr()),
+            args.get(3).map(|s| s.as_ref().into_cstr()),
+        ];
+        let args: [*const c_char; 4] = [
+            args[0].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+            args[1].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+            args[2].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+            args[3].as_ref().map_or_else(ptr::null, |a| a.as_ptr()),
+        ];
 
-            // Safety: `handle` is always valid
-            int_to_result(unsafe {
-                let event_attrs = ((*self.handle).hexchat_event_attrs_create)(self.handle);
-                defer! { ((*self.handle).hexchat_event_attrs_free)(self.handle, event_attrs) };
+        let since_unix_epoch = attrs
+            .time()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_else(|e| panic!("Invalid date in event attrs: {}", e))
+            .as_secs() as time_t;
 
-                ptr::write(
-                    &mut (*event_attrs).server_time_utc as *mut _,
-                    since_unix_epoch,
-                );
+        // Safety: `handle` is always valid
+        int_to_result(unsafe {
+            let event_attrs = ((*self.handle).hexchat_event_attrs_create)(self.handle);
+            defer! { ((*self.handle).hexchat_event_attrs_free)(self.handle, event_attrs) };
 
-                ((*self.handle).hexchat_emit_print_attrs)(
-                    self.handle,
-                    event_attrs,
-                    event.as_ptr(),
-                    args[0],
-                    args[1],
-                    args[2],
-                    args[3],
-                    ptr::null::<c_char>(),
-                )
-            })
+            ptr::write(
+                &mut (*event_attrs).server_time_utc as *mut _,
+                since_unix_epoch,
+            );
+
+            ((*self.handle).hexchat_emit_print_attrs)(
+                self.handle,
+                event_attrs,
+                event.as_ptr(),
+                args[0],
+                args[1],
+                args[2],
+                args[3],
+                ptr::null::<c_char>(),
+            )
         })
     }
 
@@ -537,33 +535,33 @@ impl<'ph> PluginHandle<'ph> {
         mirc: strip::MircColors,
         attrs: strip::TextAttrs,
     ) -> Result<String, ()> {
-        str.with_cstr(|str| {
-            let mirc_flag = match mirc {
-                strip::MircColors::Keep => 0,
-                strip::MircColors::Remove => 1,
-            } << 0;
-            let attrs_flag = match attrs {
-                strip::TextAttrs::Keep => 0,
-                strip::TextAttrs::Remove => 1,
-            } << 1;
-            let flags = mirc_flag | attrs_flag;
+        let str = str.into_cstr();
 
-            // Safety: handle is always valid
-            let stripped_ptr =
-                unsafe { ((*self.handle).hexchat_strip)(self.handle, str.as_ptr(), -1, flags) };
+        let mirc_flag = match mirc {
+            strip::MircColors::Keep => 0,
+            strip::MircColors::Remove => 1,
+        } << 0;
+        let attrs_flag = match attrs {
+            strip::TextAttrs::Keep => 0,
+            strip::TextAttrs::Remove => 1,
+        } << 1;
+        let flags = mirc_flag | attrs_flag;
 
-            if stripped_ptr.is_null() {
-                return Err(());
-            }
+        // Safety: handle is always valid
+        let stripped_ptr =
+            unsafe { ((*self.handle).hexchat_strip)(self.handle, str.as_ptr(), -1, flags) };
 
-            // Safety: handle is always valid; stripped_ptr was returned from hexchat_strip
-            defer! { unsafe { ((*self.handle).hexchat_free)(self.handle, stripped_ptr as *mut _) } };
+        if stripped_ptr.is_null() {
+            return Err(());
+        }
 
-            // Safety: hexchat_strip returns a valid pointer or null; temporary is immediately copied to an owned string
-            let stripped = unsafe { CStr::from_ptr(stripped_ptr).to_str().map(|s| s.to_owned()) };
+        // Safety: handle is always valid; stripped_ptr was returned from hexchat_strip
+        defer! { unsafe { ((*self.handle).hexchat_free)(self.handle, stripped_ptr as *mut _) } };
 
-            Ok(stripped.unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e)))
-        })
+        // Safety: hexchat_strip returns a valid pointer or null; temporary is immediately copied to an owned string
+        let stripped = unsafe { CStr::from_ptr(stripped_ptr).to_str().map(|s| s.to_owned()) };
+
+        Ok(stripped.unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e)))
     }
 }
 
