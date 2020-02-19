@@ -56,6 +56,18 @@ pub enum Eat {
     All = HEXCHAT_EAT_ALL as u8,
 }
 
+/// Determines whether a timer callback should continue running.
+///
+/// Used with [`PluginHandle::hook_timer`](../struct.PluginHandle.html#method.hook_timer).
+#[repr(u8)]
+pub enum Timer {
+    /// Keep running the timer callback on the specified interval.
+    // "return 1 to keep running" https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_timer
+    Continue = 1,
+    /// Stop running the timer callback.
+    Stop = 0,
+}
+
 /// A handle to a hook registered with HexChat.
 ///
 /// Cannot be constructed in user code, but is returned from hook registration functions such as

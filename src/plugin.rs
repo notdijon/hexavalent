@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::mem;
 use std::os::raw::{c_char, c_int, c_void};
 use std::ptr::{self, NonNull};
-use std::time::UNIX_EPOCH;
+use std::time::{Duration, UNIX_EPOCH};
 
 use libc::time_t;
 
@@ -786,6 +786,103 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                 pri as c_int,
                 hook_command_callback::<P>,
                 help_text.as_ptr(),
+                callback as *mut c_void,
+            )
+        };
+
+        let hook = NonNull::new(hook)
+            .unwrap_or_else(|| panic!("Hook handle was null, should be infallible"));
+
+        // Safety: hook was returned by HexChat; hook is not used after this
+        unsafe { HookHandle::new(hook) }
+    }
+
+    /// Registers a timer hook with HexChat.
+    ///
+    /// `callback` will be called at the interval specified by `timeout`, with a resolution of 1 millisecond.
+    ///
+    /// Note that `callback` is a function pointer and not an `impl Fn()`.
+    /// This means that it cannot capture any variables; instead, use `plugin` to store state.
+    /// See the [impl header](struct.PluginHandle.html#impl-2) for more details.
+    ///
+    /// Returns a [`HookHandle`](hook/struct.HookHandle.html) which can be passed to
+    /// [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) to unregister the hook.
+    ///
+    /// Analogous to [`hexchat_hook_timer`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_timer).
+    ///
+    /// # Panics
+    ///
+    /// If `timeout` is more than `i32::MAX` milliseconds.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use std::cell::Cell;
+    /// use std::time::Duration;
+    /// use hexavalent::{Plugin, PluginHandle};
+    /// use hexavalent::hook::{Eat, HookHandle, Priority, Timer};
+    ///
+    /// struct MyPlugin {
+    ///     should_run: Cell<bool>,
+    /// }
+    ///
+    /// fn add_annoying_command(plugin: &MyPlugin, ph: PluginHandle<'_, MyPlugin>) {
+    ///     plugin.should_run.set(true);
+    ///
+    ///     ph.hook_timer(Duration::from_secs(5), |plugin, ph| {
+    ///         if plugin.should_run.get() {
+    ///             ph.print("Annoying message! Type /stop to stop.\0");
+    ///             Timer::Continue
+    ///         } else {
+    ///             ph.print("This is the last annoying message!\0");
+    ///             Timer::Stop
+    ///         }
+    ///     });
+    ///
+    ///     ph.hook_command(
+    ///         "stop\0",
+    ///         "Usage: STOP, stops being annoying\0",
+    ///         Priority::Normal,
+    ///         |plugin, ph, words| {
+    ///             if plugin.should_run.get() {
+    ///                 // Instead of using this `Cell<bool>` flag,
+    ///                 // it would make more sense to store a `HookHandle`
+    ///                 // and call `ph.unhook(hook)` here,
+    ///                 // but this demonstrates the use of `Timer::Stop`.
+    ///                 plugin.should_run.set(false);
+    ///             }
+    ///             Eat::All
+    ///         }
+    ///     );
+    /// }
+    /// ```
+    pub fn hook_timer(
+        self,
+        timeout: Duration,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>) -> hook::Timer,
+    ) -> HookHandle {
+        extern "C" fn hook_timer_callback<P: 'static>(user_data: *mut c_void) -> c_int {
+            catch_and_log_unwind("hook_timer_callback", || {
+                // Safety: this is exactly the type we pass into user_data below
+                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>) -> hook::Timer =
+                    unsafe { mem::transmute(user_data) };
+
+                with_plugin_state(|plugin, ph| callback(plugin, ph))
+            })
+            .unwrap_or(hook::Timer::Stop) as c_int
+        }
+
+        let milliseconds = timeout
+            .as_millis()
+            .try_into()
+            .unwrap_or_else(|e| panic!("Timeout duration too long: {}", e));
+
+        // Safety: handle is always valid
+        let hook = unsafe {
+            ((*self.handle).hexchat_hook_timer)(
+                self.handle,
+                milliseconds,
+                hook_timer_callback::<P>,
                 callback as *mut c_void,
             )
         };
