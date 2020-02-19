@@ -327,8 +327,6 @@ impl<'ph> PluginHandle<'ph> {
                     since_unix_epoch,
                 );
 
-                self.print((*event_attrs).server_time_utc.to_string().as_str()); // todo remove
-
                 ((*self.handle).hexchat_emit_print_attrs)(
                     self.handle,
                     event_attrs,
