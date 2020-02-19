@@ -131,10 +131,6 @@ impl HookHandle {
     }
 
     /// Convert this `HookHandle` back into a native `hexchat_hook`.
-    ///
-    /// # Panics
-    ///
-    /// If this hook belongs to a now-unloaded instance of the plugin.
     pub(crate) fn into_raw(self) -> NonNull<hexchat_hook> {
         self.handle
     }
