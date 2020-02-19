@@ -772,19 +772,18 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                 // it appears that HexChat always populates the full 32 elements, so don't bother slicing words, just give them all of it
                 with_plugin_state(|plugin, ph| callback(plugin, ph, &words))
             })
-            .unwrap_or(hook::Eat::None) as u8 as c_int
+            .unwrap_or(hook::Eat::None) as c_int
         }
 
         let name = name.into_cstr();
         let help_text = help_text.into_cstr();
-        let pri = pri as i8 as c_int;
 
         // Safety: handle is always valid
         let hook = unsafe {
             ((*self.handle).hexchat_hook_command)(
                 self.handle,
                 name.as_ptr(),
-                pri,
+                pri as c_int,
                 hook_command_callback::<P>,
                 help_text.as_ptr(),
                 callback as *mut c_void,
