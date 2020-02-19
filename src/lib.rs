@@ -2,13 +2,13 @@
 //!
 //! To create your plugin:
 //! - Make a library crate with [`crate-type = "cdylib"`](https://doc.rust-lang.org/cargo/reference/manifest.html#building-dynamic-or-static-libraries).
-//! - Define a type, e.g. `struct MyPlugin`, to hold any state your plugin will need.
-//! - Implement the [`Plugin`](trait.Plugin.html) and `Default` traits for `MyPlugin`.
+//! - Define a type, e.g. `struct MyPlugin`, to hold any state your plugin needs.
+//! - Implement the [`Plugin`](trait.Plugin.html) trait for `MyPlugin`.
 //! - Call [`export_plugin`](macro.export_plugin.html) with the type `MyPlugin`, its name, description, and version.
 //!
 //! On Windows, it is recommended to add `-C target-feature=+crt-static` to your `RUSTFLAGS`,
 //! for example in [`<project root>/.cargo/config`](https://doc.rust-lang.org/cargo/reference/config.html).
-//! This will ensure that your DLL does not dynamically import the MSVCRT.
+//! This ensures that your DLL does not dynamically import the MSVCRT.
 //!
 //! # Examples
 //!
@@ -22,7 +22,7 @@
 //! (Although it is never explicitly stated that this is true, HexChat's plugin documentation says nothing of synchronization,
 //! and none of the example plugins have any. It also seems true in practice.)
 //!
-//! In debug mode (specifically, when `debug_assertions` is enabled), the current thread ID will be checked every time the plugin is invoked,
+//! In debug mode (specifically, when `debug_assertions` is enabled), the current thread ID is checked every time the plugin is invoked,
 //! which can help detect misbehavior.
 
 #![warn(missing_docs)]
@@ -37,6 +37,7 @@ mod state;
 #[doc(hidden)]
 pub mod internal;
 
+pub mod hook;
 pub mod mode;
 pub mod print;
 pub mod strip;
@@ -47,7 +48,7 @@ pub use plugin::{Plugin, PluginHandle};
 ///
 /// Do not define a `main` function; initialization should be performed in your plugin's [`Plugin::init`](trait.Plugin.html#tymethod.init) function.
 ///
-/// The type passed to `export_plugin` must implement both [`Plugin`](trait.Plugin.html) and `Default`.
+/// The type passed to `export_plugin` must implement [`Plugin`](trait.Plugin.html).
 ///
 /// # Examples
 ///
@@ -58,7 +59,7 @@ pub use plugin::{Plugin, PluginHandle};
 /// struct NoopPlugin;
 ///
 /// impl Plugin for NoopPlugin {
-///     fn init(&self, ph: PluginHandle<'_>) {
+///     fn init(&self, ph: PluginHandle<'_, Self>) {
 ///         ph.print("Hello world!\0");
 ///     }
 /// }
@@ -75,7 +76,7 @@ pub use plugin::{Plugin, PluginHandle};
 /// struct NoopPlugin;
 ///
 /// impl Plugin for NoopPlugin {
-///     fn init(&self, ph: PluginHandle<'_>) {
+///     fn init(&self, ph: PluginHandle<'_, Self>) {
 ///         ph.print("Hello world!\0");
 ///     }
 /// }

@@ -8,7 +8,7 @@
 //! use hexavalent::PluginHandle;
 //! use hexavalent::print::events::ChannelMessage;
 //!
-//! fn print_welcome_message(ph: PluginHandle<'_>) -> Result<(), ()> {
+//! fn print_welcome_message<P>(ph: PluginHandle<'_, P>) -> Result<(), ()> {
 //!     ph.emit_print(ChannelMessage, ["hexavalent\0", "Plugin started!\0", "@\0", "\0"])
 //! }
 //! ``````
@@ -29,7 +29,7 @@ use std::time::SystemTime;
 /// use hexavalent::print::EventAttrs;
 /// use hexavalent::print::events::ChannelMessage;
 ///
-/// fn print_fake_message_like_its_1979(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
+/// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
 ///     let attrs = EventAttrs::new(std::time::UNIX_EPOCH + std::time::Duration::from_secs(86400 * 365 * 9));
 ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
 /// }

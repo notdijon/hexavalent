@@ -6,13 +6,13 @@ use hexavalent::{export_plugin, Plugin, PluginHandle};
 struct SimplePlugin;
 
 impl Plugin for SimplePlugin {
-    fn init(&self, ph: PluginHandle<'_>) {
+    fn init(&self, ph: PluginHandle<'_, Self>) {
         ph.print("Plugin loaded successfully!\0");
 
         // todo make this a simple message counter
     }
 
-    fn deinit(&self, ph: PluginHandle<'_>) {
+    fn deinit(&self, ph: PluginHandle<'_, Self>) {
         ph.print("Unloading plugin...\0");
     }
 }

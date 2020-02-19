@@ -2,26 +2,27 @@ use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::ffi::CStr;
 use std::marker::PhantomData;
-use std::os::raw::c_char;
-use std::ptr;
+use std::mem;
+use std::os::raw::{c_char, c_int, c_void};
+use std::ptr::{self, NonNull};
 use std::time::UNIX_EPOCH;
 
 use libc::time_t;
 
 use crate::ffi::{hexchat_plugin, int_to_result, StrExt};
+use crate::hook::{self, HookHandle};
 use crate::mode;
 use crate::print::{EventAttrs, PrintEvent};
+use crate::state::{catch_and_log_unwind, with_plugin_state};
 use crate::strip;
 
 /// Must be implemented by all HexChat plugins.
-///
-/// Plugins must also implement `Default`, although it is not a superclass due to object safety restrictions.
 ///
 /// # Examples
 ///
 /// TODO add example when more stuff works
 ///  printing statistics would be good here
-pub trait Plugin: 'static {
+pub trait Plugin: Default + 'static {
     /// Initialize your plugin.
     ///
     /// Use this method to perform any work that should be done when your plugin is loaded,
@@ -34,23 +35,24 @@ pub trait Plugin: 'static {
     /// ```rust
     /// use hexavalent::{Plugin, PluginHandle};
     ///
+    /// #[derive(Default)]
     /// struct MyPlugin;
     ///
     /// impl Plugin for MyPlugin {
-    ///     fn init(&self, ph: PluginHandle<'_>) {
+    ///     fn init(&self, ph: PluginHandle<'_, Self>) {
     ///         ph.print("Plugin loaded successfully!\0");
     ///     }
     /// }
     /// ```
-    fn init(&self, ph: PluginHandle<'_>);
+    fn init(&self, ph: PluginHandle<'_, Self>);
 
     /// Deinitialize your plugin.
     ///
     /// Use this method to perform any work that should be done when your plugin is unloaded,
     /// such as printing shutdown messages or statistics.
     ///
-    /// You do not need to explicitly [`unhook`](struct.PluginHandle.html#method.unhook) any hooks in this method, as remaining hooks are
-    /// automatically removed by HexChat when your plugin finishes unloading.
+    /// You do not need to call [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) in this method,
+    /// as remaining hooks are automatically removed by HexChat when your plugin finishes unloading.
     ///
     /// Analogous to [`hexchat_plugin_deinit`](https://hexchat.readthedocs.io/en/latest/plugins.html#sample-plugin).
     ///
@@ -59,17 +61,18 @@ pub trait Plugin: 'static {
     /// ```rust
     /// use hexavalent::{Plugin, PluginHandle};
     ///
+    /// #[derive(Default)]
     /// struct MyPlugin;
     ///
     /// impl Plugin for MyPlugin {
-    ///     fn init(&self, _: PluginHandle<'_>) {}
+    ///     fn init(&self, _: PluginHandle<'_, Self>) {}
     ///
-    ///     fn deinit(&self, ph: PluginHandle<'_>) {
+    ///     fn deinit(&self, ph: PluginHandle<'_, Self>) {
     ///         ph.print("Plugin unloading...\0");
     ///     }
     /// }
     /// ```
-    fn deinit(&self, ph: PluginHandle<'_>) {
+    fn deinit(&self, ph: PluginHandle<'_, Self>) {
         let _ = ph;
     }
 }
@@ -79,7 +82,7 @@ pub trait Plugin: 'static {
 /// Cannot be constructed in user code, but is passed into
 /// [`Plugin::init`](trait.Plugin.html#tymethod.init),
 /// [`Plugin::deinit`](trait.Plugin.html#method.deinit),
-/// and hook callbacks such as [`hook_command`](struct.PluginHandle.html#method.hook_command).
+/// and hook callbacks such as [`PluginHandle::hook_command`](struct.PluginHandle.html#method.hook_command).
 ///
 /// Most of HexChat's [functions](https://hexchat.readthedocs.io/en/latest/plugins.html#functions) are available as struct methods,
 /// without the `hexchat_` prefix.
@@ -90,7 +93,8 @@ pub trait Plugin: 'static {
 /// and panic if the string contains interior nulls.
 ///
 /// ```rust
-/// # fn print_some_stuff(ph: hexavalent::PluginHandle<'_>) {
+/// # use hexavalent::PluginHandle;
+/// # fn print_some_stuff<P>(ph: PluginHandle<'_, P>) {
 /// // for example, this would not allocate
 /// ph.print("hello\0");
 /// // ...this would allocate
@@ -99,16 +103,21 @@ pub trait Plugin: 'static {
 /// ph.print("hel\0lo");
 /// # }
 /// ```
-///
-/// TODO add basic hook example
-#[derive(Copy, Clone)]
-pub struct PluginHandle<'ph> {
+pub struct PluginHandle<'ph, P> {
     /// Always points to a valid instance of `hexchat_plugin`.
     handle: *mut hexchat_plugin,
     _lifetime: PhantomData<&'ph hexchat_plugin>,
+    _plugin: PhantomData<P>,
 }
 
-impl<'ph> PluginHandle<'ph> {
+impl<'ph, P> Copy for PluginHandle<'ph, P> {}
+impl<'ph, P> Clone for PluginHandle<'ph, P> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<'ph, P> PluginHandle<'ph, P> {
     /// Creates a new `PluginHandle` from a native `hexchat_plugin`.
     ///
     /// # Safety
@@ -118,12 +127,15 @@ impl<'ph> PluginHandle<'ph> {
         Self {
             handle: plugin_handle,
             _lifetime: PhantomData,
+            _plugin: PhantomData,
         }
     }
 }
 
 /// [General Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#general-functions)
-impl<'ph> PluginHandle<'ph> {
+///
+/// General functions allow printing text, running commands, creating events, and other miscellaneous operations.
+impl<'ph, P> PluginHandle<'ph, P> {
     /// Prints text to the current tab. Text may contain mIRC color codes and formatting.
     ///
     /// Analogous to [`hexchat_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_print).
@@ -133,7 +145,7 @@ impl<'ph> PluginHandle<'ph> {
     /// ```rust
     /// use hexavalent::PluginHandle;
     ///
-    /// fn say_hello(ph: PluginHandle<'_>) {
+    /// fn say_hello<P>(ph: PluginHandle<'_, P>) {
     ///     // null-termination is not required, but avoids allocation
     ///     ph.print("hello!\0");
     /// }
@@ -155,7 +167,7 @@ impl<'ph> PluginHandle<'ph> {
     /// ```rust
     /// use hexavalent::PluginHandle;
     ///
-    /// fn op_user(ph: PluginHandle<'_>, username: &str) {
+    /// fn op_user<P>(ph: PluginHandle<'_, P>, username: &str) {
     ///     // do not include the leading slash
     ///     ph.command(&format!("OP {}\0", username));
     /// }
@@ -180,7 +192,7 @@ impl<'ph> PluginHandle<'ph> {
     /// use hexavalent::PluginHandle;
     /// use hexavalent::print::events::ChannelMessage;
     ///
-    /// fn print_fake_message(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
+    /// fn print_fake_message<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
     ///     ph.emit_print(ChannelMessage, [user, text, "@\0", "$\0"])
     /// }
     /// ```
@@ -233,7 +245,7 @@ impl<'ph> PluginHandle<'ph> {
     /// ```rust
     /// use hexavalent::PluginHandle;
     ///
-    /// fn print_fake_message(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
+    /// fn print_fake_message<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
     ///     ph.emit_print_dyn("Channel Message\0", &[user, text, "@\0", "$\0"])
     /// }
     /// ```
@@ -286,7 +298,7 @@ impl<'ph> PluginHandle<'ph> {
     /// use hexavalent::print::EventAttrs;
     /// use hexavalent::print::events::ChannelMessage;
     ///
-    /// fn print_fake_message_like_its_1979(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
+    /// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
     ///     let attrs = EventAttrs::new(std::time::UNIX_EPOCH + std::time::Duration::from_secs(86400 * 365 * 9));
     ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
     /// }
@@ -357,7 +369,7 @@ impl<'ph> PluginHandle<'ph> {
     /// use hexavalent::PluginHandle;
     /// use hexavalent::print::EventAttrs;
     ///
-    /// fn print_fake_message_like_its_1979(ph: PluginHandle<'_>, user: &str, text: &str) -> Result<(), ()> {
+    /// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
     ///     let attrs = EventAttrs::new(std::time::UNIX_EPOCH + std::time::Duration::from_secs(86400 * 365 * 9));
     ///     ph.emit_print_attrs_dyn("Channel Message\0", attrs, &[user, text, "@\0", "$\0"])
     /// }
@@ -428,12 +440,12 @@ impl<'ph> PluginHandle<'ph> {
     /// use hexavalent::PluginHandle;
     /// use hexavalent::mode::Sign;
     ///
-    /// fn op_users(ph: PluginHandle<'_>, users: &[&str]) {
+    /// fn op_users<P>(ph: PluginHandle<'_, P>, users: &[&str]) {
     ///     // sends `MODE <users> +o`
     ///     ph.send_modes(users, Sign::Add, b'o');
     /// }
     ///
-    /// fn unban_user(ph: PluginHandle<'_>, user: &str) {
+    /// fn unban_user<P>(ph: PluginHandle<'_, P>, user: &str) {
     ///     // sends `MODE <user> -b`
     ///     ph.send_modes(&[user], Sign::Remove, b'b');
     /// }
@@ -486,7 +498,7 @@ impl<'ph> PluginHandle<'ph> {
     /// ```rust
     /// use hexavalent::PluginHandle;
     ///
-    /// fn sort_nicknames(ph: PluginHandle<'_>, nicks: &mut [impl AsRef<str>]) {
+    /// fn sort_nicknames<P>(ph: PluginHandle<'_, P>, nicks: &mut [impl AsRef<str>]) {
     ///     nicks.sort_by(|n1, n2| ph.nickcmp(n1.as_ref(), n2.as_ref()));
     /// }
     /// ```
@@ -517,7 +529,7 @@ impl<'ph> PluginHandle<'ph> {
     /// use hexavalent::PluginHandle;
     /// use hexavalent::strip::{MircColors, TextAttrs};
     ///
-    /// fn strip_example(ph: PluginHandle<'_>) {
+    /// fn strip_example<P>(ph: PluginHandle<'_, P>) {
     ///     let orig = "\x0312Blue\x03 \x02Bold!\x02";
     ///
     ///     let strip_all = ph.strip(orig, MircColors::Remove, TextAttrs::Remove);
@@ -564,7 +576,9 @@ impl<'ph> PluginHandle<'ph> {
 }
 
 /// [Getting Information](https://hexchat.readthedocs.io/en/latest/plugins.html#getting-information)
-impl<'ph> PluginHandle<'ph> {
+///
+/// Allows you get information about the current context or HexChat's settings.
+impl<'ph, P> PluginHandle<'ph, P> {
     /* TODO
         hexchat_get_info,
         hexchat_get_prefs,
@@ -576,10 +590,258 @@ impl<'ph> PluginHandle<'ph> {
         hexchat_list_time,
         hexchat_list_free,
     */
+    /// todo temp
+    pub fn temp_placeholder_impl_block() {}
 }
 
 /// [Hook Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#hook-functions)
-impl<'ph> PluginHandle<'ph> {
+///
+/// Hook functions register hook callbacks with HexChat.
+/// You can execute code when the user runs a command, when print or server events happen, or on a timer interval.
+///
+/// # Examples
+///
+/// The `callback` passed into each hook function is a function pointer (`fn(X) -> Y`)
+/// and not a type implementing a function trait (`impl Fn(X) -> Y`), unlike most higher-order functions in Rust.
+/// This means that no allocation is required to register a hook, so the plugin cannot leak memory on unload.
+/// However, it also means that you cannot capture local variables in hook callbacks.
+///
+/// For example, the following does not compile, because `count` is captured by the closure.
+///
+/// ```rust,compile_fail
+/// use hexavalent::{Plugin, PluginHandle};
+/// use hexavalent::hook::{Eat, HookHandle, Priority};
+///
+/// struct MyPlugin;
+///
+/// fn add_counting_command(ph: PluginHandle<'_, MyPlugin>) {
+///     let mut count = 0;
+///     ph.hook_command(
+///         "count\0",
+///         "Usage: COUNT, counts the number of times this command was used\0",
+///         Priority::Normal,
+///         |plugin, ph, words| {
+///             count += 1;
+///             ph.print(&format!("Called {} time(s)!\0", count));
+///             Eat::All
+///         }
+///     );
+/// }
+/// ```
+///
+/// Instead, store state on the plugin struct. Each hook callback gets a shared reference to the plugin.
+///
+/// Use `Cell` to store simple `Copy` types, as in the following (working) example of a count command.
+/// Also use `Cell` when a non-`Copy` type should be moved in and out of the state without mutation,
+/// as in [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook)'s example of storing [`HookHandle`](hook/struct.HookHandle.html).
+///
+/// ```rust
+/// use std::cell::Cell;
+/// use hexavalent::{Plugin, PluginHandle};
+/// use hexavalent::hook::{Eat, HookHandle, Priority};
+///
+/// struct MyPlugin {
+///     count: Cell<u32>,
+/// }
+///
+/// fn add_counting_command(ph: PluginHandle<'_, MyPlugin>) {
+///     ph.hook_command(
+///         "count\0",
+///         "Usage: COUNT, counts the number of times this command was used\0",
+///         Priority::Normal,
+///         |plugin, ph, words| {
+///             plugin.count.set(plugin.count.get() + 1);
+///             ph.print(&format!("Called {} time(s)!\0", plugin.count.get()));
+///             Eat::All
+///         }
+///     );
+/// }
+/// ```
+///
+/// Use `RefCell` to store values which are mutated while in the state, as in the following example of a map.
+///
+/// ```rust
+/// use std::cell::RefCell;
+/// use std::collections::HashMap;
+/// use hexavalent::{Plugin, PluginHandle};
+/// use hexavalent::hook::{Eat, HookHandle, Priority};
+///
+/// struct MyPlugin {
+///     map: RefCell<HashMap<String, String>>,
+/// }
+///
+/// fn add_map_command(ph: PluginHandle<'_, MyPlugin>) {
+///     ph.hook_command("map_set\0", "Usage: MAP_SET <k> <v>\0", Priority::Normal, |plugin, ph, words| {
+///         let key = words[1].to_string();
+///         let val = words[2].to_string();
+///         plugin.map.borrow_mut().insert(key, val);
+///         Eat::All
+///     });
+///     ph.hook_command("map_del\0", "Usage: MAP_DEL <k>\0", Priority::Normal, |plugin, ph, words| {
+///         let key = words[1];
+///         plugin.map.borrow_mut().remove(key);
+///         Eat::All
+///     });
+///     ph.hook_command("map_get\0", "Usage: MAP_GET <k>\0", Priority::Normal, |plugin, ph, words| {
+///         let key = words[1];
+///         match plugin.map.borrow().get(key) {
+///             Some(val) => ph.print(&format!("map['{}']: '{}'\0", key, val)),
+///             None => ph.print(&format!("map['{}']: <not found>\0", key)),
+///         }
+///         Eat::All
+///     });
+/// }
+/// ```
+///
+impl<'ph, P: 'static> PluginHandle<'ph, P> {
+    /// Registers a command hook with HexChat.
+    ///
+    /// The command is usable by typing `/command <words...>`.
+    /// Command names starting with `.` are hidden in `/help`.
+    /// Hooking the special command `""` (empty string) captures non-commands, i.e. input without a `/` at the beginning.
+    ///
+    /// Each element of `words` is an argument to the command. Similar to `argv`-style command-line arguments,
+    /// `words[0]`  is the name of the command, so `words[1]` is the first user-provided argument.
+    /// Also, `words` is limited to 32 elements, and HexChat always provides exactly 32, so the length of `words` is not meaningful.
+    /// (Excess elements are filled with the empty string.)
+    ///
+    /// Note that `callback` is a function pointer and not an `impl Fn()`.
+    /// This means that it cannot capture any variables; instead, use `plugin` to store state.
+    /// See the [impl header](struct.PluginHandle.html#impl-2) for more details.
+    ///
+    /// Returns a [`HookHandle`](hook/struct.HookHandle.html) which can be passed to
+    /// [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) to unregister the hook.
+    ///
+    /// Analogous to [`hexchat_hook_command`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_command).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use hexavalent::{Plugin, PluginHandle};
+    /// use hexavalent::hook::{Eat, HookHandle, Priority};
+    ///
+    /// struct MyPlugin;
+    ///
+    /// fn add_greeting_command(ph: PluginHandle<'_, MyPlugin>) {
+    ///     ph.hook_command(
+    ///         "greet\0",
+    ///         "Usage: GREET <name>, prints a greeting locally\0",
+    ///         Priority::Normal,
+    ///         |plugin, ph, words| {
+    ///             ph.print(&format!("Hello {}!\0", words[1]));
+    ///             Eat::All
+    ///         }
+    ///     );
+    /// }
+    /// ```
+    pub fn hook_command(
+        &self,
+        name: &str,
+        help_text: &str,
+        pri: hook::Priority,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> hook::Eat,
+    ) -> HookHandle {
+        extern "C" fn hook_command_callback<P: 'static>(
+            word: *mut *mut c_char,
+            _word_eol: *mut *mut c_char,
+            user_data: *mut c_void,
+        ) -> c_int {
+            catch_and_log_unwind("hook_command_callback", || {
+                // Safety: this is exactly the type we pass into user_data below
+                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> hook::Eat =
+                    unsafe { mem::transmute(user_data) };
+
+                // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
+                // Safety: first index is reserved, per documentation
+                let word = unsafe { word.offset(1) };
+                const MAX_WORDS: usize = 32;
+                let mut words = [""; MAX_WORDS];
+                for i in 0..MAX_WORDS {
+                    // Safety: word points to a valid null-terminated array, so we cannot read past the end or wrap
+                    let elem = unsafe { *word.offset(i as isize) };
+                    if elem.is_null() {
+                        break;
+                    }
+                    // Safety: word points to valid strings; words does not outlive this function
+                    let cstr = unsafe { CStr::from_ptr(elem) };
+                    words[i] = cstr.to_str().unwrap_or_else(|e| {
+                        panic!("Invalid UTF8 in field index {} of command: {}", i, e)
+                    });
+                }
+
+                // it appears that HexChat always populates the full 32 elements, so don't bother slicing words, just give them all of it
+                with_plugin_state(|plugin, ph| callback(plugin, ph, &words))
+            })
+            .unwrap_or(hook::Eat::None) as u8 as c_int
+        }
+
+        let name = name.into_cstr();
+        let help_text = help_text.into_cstr();
+        let pri = pri as i8 as c_int;
+
+        // Safety: handle is always valid
+        let hook = unsafe {
+            ((*self.handle).hexchat_hook_command)(
+                self.handle,
+                name.as_ptr(),
+                pri,
+                hook_command_callback::<P>,
+                help_text.as_ptr(),
+                callback as *mut c_void,
+            )
+        };
+
+        let hook = NonNull::new(hook)
+            .unwrap_or_else(|| panic!("Hook handle was null, should be infallible"));
+
+        // Safety: hook was returned by HexChat; hook is not used after this
+        unsafe { HookHandle::new(hook) }
+    }
+
+    /// Unregisters a hook from HexChat.
+    ///
+    /// Used with hook registrations functions such as [`PluginHandle::hook_command`](struct.PluginHandle.html#method.hook_command).
+    ///
+    /// HexChat automatically unhooks any remaining hooks after your plugin finishes unloading,
+    /// so this function is only useful if you need to unhook a hook while your plugin is running.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::cell::Cell;
+    /// use hexavalent::{Plugin, PluginHandle};
+    /// use hexavalent::hook::{Eat, HookHandle, Priority};
+    ///
+    /// #[derive(Default)]
+    /// struct MyPlugin {
+    ///     cmd_handle: Cell<Option<HookHandle>>,
+    /// }
+    ///
+    /// impl Plugin for MyPlugin {
+    ///     fn init(&self, ph: PluginHandle<'_, Self>) {
+    ///         let hook = ph.hook_command(
+    ///             "thisCommandOnlyWorksOnce\0",
+    ///             "Usage: THISCOMMANDONLYWORKSONCE <args...>, this command only works once\0",
+    ///             Priority::Normal,
+    ///             |plugin, ph, words| {
+    ///                 ph.print(&format!("You'll only see this once: {}\0", words.join("|")));
+    ///                 if let Some(hook) = plugin.cmd_handle.take() {
+    ///                     ph.unhook(hook);
+    ///                 }
+    ///                 Eat::All
+    ///             }
+    ///         );
+    ///         self.cmd_handle.set(Some(hook));
+    ///     }
+    /// }
+    /// ```
+    pub fn unhook(&self, hook: HookHandle) {
+        let hook = hook.into_raw().as_ptr();
+
+        // Safety: handle is always valid; hook is valid due to HookHandle invariant
+        let _ = unsafe { ((*self.handle).hexchat_unhook)(self.handle, hook) };
+    }
+
     /* TODO
         hexchat_hook_command,
         hexchat_hook_fd,
@@ -593,7 +855,9 @@ impl<'ph> PluginHandle<'ph> {
 }
 
 /// [Context Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#context-functions)
-impl<'ph> PluginHandle<'ph> {
+///
+/// TODO description
+impl<'ph, P> PluginHandle<'ph, P> {
     /* TODO
         hexchat_find_context,
         hexchat_get_context,
@@ -602,7 +866,9 @@ impl<'ph> PluginHandle<'ph> {
 }
 
 /// [Plugin Preferences](https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-preferences)
-impl<'ph> PluginHandle<'ph> {
+///
+/// TODO description
+impl<'ph, P> PluginHandle<'ph, P> {
     /* TODO
         hexchat_pluginpref_set_str,
         hexchat_pluginpref_get_str,
@@ -614,7 +880,9 @@ impl<'ph> PluginHandle<'ph> {
 }
 
 /// [Plugin GUI](https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-gui)
-impl<'ph> PluginHandle<'ph> {
+///
+/// TODO description
+impl<'ph, P> PluginHandle<'ph, P> {
     /* TODO
         hexchat_plugingui_add,
         hexchat_plugingui_remove,
