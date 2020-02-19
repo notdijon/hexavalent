@@ -1,5 +1,3 @@
-#![crate_type = "cdylib"]
-
 use hexavalent::{export_plugin, Plugin, PluginHandle};
 
 #[derive(Default)]
