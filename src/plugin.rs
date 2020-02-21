@@ -738,7 +738,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
         &self,
         name: &str,
         help_text: &str,
-        pri: hook::Priority,
+        priority: hook::Priority,
         callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> hook::Eat,
     ) -> HookHandle {
         extern "C" fn hook_command_callback<P: 'static>(
@@ -783,7 +783,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
             ((*self.handle).hexchat_hook_command)(
                 self.handle,
                 name.as_ptr(),
-                pri as c_int,
+                priority as c_int,
                 hook_command_callback::<P>,
                 help_text.as_ptr(),
                 callback as *mut c_void,
