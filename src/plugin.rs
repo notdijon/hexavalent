@@ -196,10 +196,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     ph.emit_print(ChannelMessage, [user, text, "@\0", "$\0"])
     /// }
     /// ```
-    pub fn emit_print<'a, E: PrintEvent<'a>>(
+    pub fn emit_print<E: for<'a> PrintEvent<'a>>(
         self,
         event: E,
-        args: <E as PrintEvent<'a>>::Args,
+        args: <E as PrintEvent<'_>>::Args,
     ) -> Result<(), ()> {
         let _ = event;
         E::args_to_c(args, |args| {
@@ -303,11 +303,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
     /// }
     /// ```
-    pub fn emit_print_attrs<'a, E: PrintEvent<'a>>(
+    pub fn emit_print_attrs<E: for<'a> PrintEvent<'a>>(
         self,
         event: E,
         attrs: EventAttrs<'_>,
-        args: <E as PrintEvent<'a>>::Args,
+        args: <E as PrintEvent<'_>>::Args,
     ) -> Result<(), ()> {
         let _ = event;
         E::args_to_c(args, |args| {
