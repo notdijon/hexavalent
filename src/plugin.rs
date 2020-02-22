@@ -9,7 +9,7 @@ use std::time::{Duration, UNIX_EPOCH};
 
 use libc::time_t;
 
-use crate::ffi::{hexchat_plugin, int_to_result, StrExt};
+use crate::ffi::{hexchat_plugin, int_to_result, with_parsed_words, StrExt, WordPtr};
 use crate::hook::{self, HookHandle};
 use crate::mode;
 use crate::print::{EventAttrs, PrintEvent};
@@ -702,7 +702,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// Each element of `words` is an argument to the command. Similar to `argv`-style command-line arguments,
     /// `words[0]`  is the name of the command, so `words[1]` is the first user-provided argument.
-    /// Also, `words` is limited to 32 elements, and HexChat always provides exactly 32, so the length of `words` is not meaningful.
+    /// Also, `words` is limited to 32 elements, and HexChat may provide excess elements, so the length of `words` is not meaningful.
     /// (Excess elements are filled with the empty string.)
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
@@ -751,26 +751,12 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                 let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> hook::Eat =
                     unsafe { mem::transmute(user_data) };
 
-                // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
-                // Safety: first index is reserved, per documentation
-                let word = unsafe { word.offset(1) };
-                const MAX_WORDS: usize = 32;
-                let mut words = [""; MAX_WORDS];
-                for i in 0..MAX_WORDS {
-                    // Safety: word points to a valid null-terminated array, so we cannot read past the end or wrap
-                    let elem = unsafe { *word.offset(i as isize) };
-                    if elem.is_null() {
-                        break;
-                    }
-                    // Safety: word points to valid strings; words does not outlive this function
-                    let cstr = unsafe { CStr::from_ptr(elem) };
-                    words[i] = cstr.to_str().unwrap_or_else(|e| {
-                        panic!("Invalid UTF8 in field index {} of command: {}", i, e)
-                    });
-                }
+                // Safety: `word` is a valid word pointer, and is not used after this function returns
+                let word = unsafe { WordPtr::new(word) };
 
-                // it appears that HexChat always populates the full 32 elements, so don't bother slicing words, just give them all of it
-                with_plugin_state(|plugin, ph| callback(plugin, ph, &words))
+                with_parsed_words(word, |words| {
+                    with_plugin_state(|plugin, ph| callback(plugin, ph, words))
+                })
             })
             .unwrap_or(hook::Eat::None) as c_int
         }

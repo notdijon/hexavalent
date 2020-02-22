@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::ffi::{CStr, CString};
-use std::os::raw::c_int;
+use std::os::raw::{c_char, c_int};
 
 mod bindings;
 
@@ -51,6 +51,60 @@ impl<'a> StrExt for &'a str {
             Cow::Owned(CString::new(self).unwrap())
         }
     }
+}
+
+/// Holds a HexChat `word` or `word_eol` pointer.
+pub struct WordPtr {
+    /// Always points to a valid `word` or `word_eol` array.
+    ptr: *mut *mut c_char,
+}
+
+impl WordPtr {
+    /// Creates a new `WordPtr` from a `word` or `word_eol` pointer.
+    ///
+    /// # Safety
+    ///
+    /// `word` must be a `word` or `word_eol` pointer from HexChat.
+    /// Calling this function with pointers from anywhere else, even other pointers returned from HexChat,
+    /// is undefined behavior.
+    ///
+    /// See: https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
+    ///
+    /// It is your responsibility to ensure that the returned `WordPtr` does not outlive the `word` pointer used to create it.
+    pub unsafe fn new(word: *mut *mut c_char) -> Self {
+        Self { ptr: word }
+    }
+}
+
+/// Converts `word` or `word_eol` to a `&CStr` slice.
+///
+/// # Panics
+///
+/// If any element of `word` contains invalid UTF8.
+pub fn with_parsed_words<R>(word: WordPtr, f: impl FnOnce(&[&str; 32]) -> R) -> R {
+    let word = word.ptr;
+
+    // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
+    // Safety: first index is reserved, per documentation
+    let word = unsafe { word.offset(1) };
+
+    let mut words = [""; 32];
+    for i in 0..words.len() {
+        // Safety: word points to a valid null-terminated array, so we cannot read past the end or wrap
+        let elem = unsafe { *word.offset(i as isize) };
+        if elem.is_null() {
+            break;
+        }
+        // Safety: word points to valid strings; words does not outlive this function
+        let cstr = unsafe { CStr::from_ptr(elem) };
+        words[i] = cstr
+            .to_str()
+            .unwrap_or_else(|e| panic!("Invalid UTF8 in field index {}: {}", i, e));
+    }
+
+    // hexchat always passes in 32 args, so just give them all of it
+    // not by-value, because that results in a stack-to-stack memcpy, even when everything is inlined :(
+    f(&words)
 }
 
 #[cfg(test)]
