@@ -24,8 +24,74 @@ use crate::strip;
 ///
 /// # Examples
 ///
-/// TODO add example when more stuff works
-///  printing statistics would be good here
+/// ```rust
+/// use std::cell::Cell;
+/// use std::time::SystemTime;
+/// use hexavalent::{Plugin, PluginHandle};
+/// use hexavalent::hook::{Eat, Priority};
+/// use hexavalent::print::{EventAttrs, PrintEvent};
+/// use hexavalent::print::events::ChannelMessage;
+///
+/// struct StatsPlugin {
+///     start: Cell<SystemTime>,
+///     messages: Cell<usize>,
+///     characters: Cell<usize>,
+/// }
+///
+/// impl Default for StatsPlugin {
+///     fn default() -> Self {
+///         Self {
+///             start: Cell::new(SystemTime::now()),
+///             messages: Cell::new(0),
+///             characters: Cell::new(0),
+///         }
+///     }
+/// }
+///
+/// impl StatsPlugin {
+///     fn message_cb(
+///         &self,
+///         ph: PluginHandle<'_, Self>,
+///         [_, text, _, _]: <ChannelMessage as PrintEvent<'_>>::Args,
+///     ) -> Eat {
+///         self.messages.set(self.messages.get() + 1);
+///         self.characters.set(self.characters.get() + text.chars().count());
+///         Eat::None
+///     }
+///
+///     fn print_stats(&self, ph: PluginHandle<'_, Self>) {
+///         let elapsed = self.start.get().elapsed().unwrap();
+///
+///         let messages = self.messages.get();
+///         let avg_msgs = messages as f64 / (elapsed.as_secs_f64() / 60.);
+///         ph.print(&format!("Messages: {} ({:.1}/min).\0", messages, avg_msgs));
+///
+///         let characters = self.characters.get();
+///         let avg_chars = characters as f64 / messages as f64;
+///         ph.print(&format!("Characters: {} ({:.1}/msg).\0", characters, avg_chars));
+///     }
+/// }
+///
+/// impl Plugin for StatsPlugin {
+///     fn init(&self, ph: PluginHandle<'_, Self>) {
+///         ph.hook_command(
+///             "stats\0",
+///             "Usage: STATS, print message statistics\0",
+///             Priority::Normal,
+///             |plugin, ph, words| {
+///                 plugin.print_stats(ph);
+///                 Eat::All
+///             },
+///         );
+///         ph.hook_print(ChannelMessage, Priority::Normal, Self::message_cb);
+///     }
+///
+///     fn deinit(&self, ph: PluginHandle<'_, Self>) {
+///         ph.print("Overall stats:\0");
+///         self.print_stats(ph);
+///     }
+/// }
+/// ```
 pub trait Plugin: Default + 'static {
     /// Initialize your plugin.
     ///
