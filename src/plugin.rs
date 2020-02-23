@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::mem;
 use std::os::raw::{c_char, c_int, c_void};
 use std::ptr::{self, NonNull};
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::Duration;
 
 use libc::time_t;
 
@@ -244,9 +244,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     /// use hexavalent::print::EventAttrs;
     /// use hexavalent::print::events::ChannelMessage;
+    /// use time::OffsetDateTime;
     ///
     /// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
-    ///     let attrs = EventAttrs::new(std::time::UNIX_EPOCH + std::time::Duration::from_secs(86400 * 365 * 9));
+    ///     let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(86400 * 365 * 10));
     ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
     /// }
     /// ```
@@ -270,12 +271,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
                 args.get(3).map_or_else(ptr::null, |a| a.as_ptr()),
             ];
 
-            let since_unix_epoch = attrs
-                .time()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_else(|e| panic!("Invalid date in event attrs: {}", e))
-                .as_secs() as time_t;
-
             // Safety: `handle` is always valid
             int_to_result(unsafe {
                 let event_attrs = ((*self.handle).hexchat_event_attrs_create)(self.handle);
@@ -283,7 +278,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
                 ptr::write(
                     &mut (*event_attrs).server_time_utc as *mut _,
-                    since_unix_epoch,
+                    attrs.time().timestamp() as time_t,
                 );
 
                 ((*self.handle).hexchat_emit_print_attrs)(

@@ -42,7 +42,8 @@
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::c_char;
-use std::time::SystemTime;
+
+use time::OffsetDateTime;
 
 /// Attributes associated with a print event.
 ///
@@ -56,9 +57,10 @@ use std::time::SystemTime;
 /// use hexavalent::PluginHandle;
 /// use hexavalent::print::EventAttrs;
 /// use hexavalent::print::events::ChannelMessage;
+/// use time::OffsetDateTime;
 ///
 /// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
-///     let attrs = EventAttrs::new(std::time::UNIX_EPOCH + std::time::Duration::from_secs(86400 * 365 * 9));
+///     let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(86400 * 365 * 10));
 ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
 /// }
 /// ```
@@ -68,13 +70,13 @@ use std::time::SystemTime;
 /// TODO use hook_print_attrs
 #[derive(Copy, Clone)]
 pub struct EventAttrs<'a> {
-    time: SystemTime,
+    time: OffsetDateTime,
     _lifetime: PhantomData<&'a ()>,
 }
 
 impl<'a> EventAttrs<'a> {
     /// Creates a new `EventAttrs` from the specified event timestamp.
-    pub fn new(time: SystemTime) -> Self {
+    pub fn new(time: OffsetDateTime) -> Self {
         Self {
             time,
             _lifetime: PhantomData,
@@ -82,7 +84,7 @@ impl<'a> EventAttrs<'a> {
     }
 
     /// Gets the timestamp associated with this event.
-    pub fn time(self) -> SystemTime {
+    pub fn time(self) -> OffsetDateTime {
         self.time
     }
 }
