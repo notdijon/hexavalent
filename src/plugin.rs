@@ -1076,7 +1076,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
 /// [Context Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#context-functions)
 ///
-/// TODO description
+/// Allows you to work with server/channel contexts.
 impl<'ph, P> PluginHandle<'ph, P> {
     /* TODO
         hexchat_find_context,
@@ -1087,7 +1087,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
 /// [Plugin Preferences](https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-preferences)
 ///
-/// TODO description
+/// Allows you to get and set preferences associated with your plugin.
 impl<'ph, P> PluginHandle<'ph, P> {
     /* TODO
         hexchat_pluginpref_set_str,
@@ -1101,7 +1101,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
 /// [Plugin GUI](https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-gui)
 ///
-/// TODO description
+/// Allows you to add and remove fake plugins from the plugin GUI.
 impl<'ph, P> PluginHandle<'ph, P> {
     /* TODO
         hexchat_plugingui_add,
