@@ -15,4 +15,4 @@ impl Plugin for SimplePlugin {
     }
 }
 
-export_plugin!(SimplePlugin, name: "Simple Example Plugin", desc: "Doesn't do much.", version: "1.0.0");
+export_plugin!(SimplePlugin, "Simple Example", "Doesn't do much.", "1.0.0");

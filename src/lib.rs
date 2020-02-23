@@ -64,7 +64,7 @@ pub use plugin::{Plugin, PluginHandle};
 ///     }
 /// }
 ///
-/// export_plugin!(NoopPlugin, name: "No-op Plugin", desc: "Does nothing.", version: "1.0.0");
+/// export_plugin!(NoopPlugin, "No-op", "Doesn't do anything.", "1.0.0");
 /// ```
 ///
 /// Cargo's environment variables can also be used to copy `name`, `description`, and `version` from `Cargo.toml`.
@@ -83,18 +83,18 @@ pub use plugin::{Plugin, PluginHandle};
 ///
 /// export_plugin!(
 ///     NoopPlugin,
-///     name: env!("CARGO_PKG_NAME"),
-///     desc: env!("CARGO_PKG_DESCRIPTION"),
-///     version: env!("CARGO_PKG_VERSION"),
+///     env!("CARGO_PKG_NAME"),
+///     env!("CARGO_PKG_DESCRIPTION"),
+///     env!("CARGO_PKG_VERSION"),
 /// );
 /// ```
 #[macro_export]
 macro_rules! export_plugin {
     (
         $plugin_ty:ty,
-        name: $name:expr,
-        desc: $desc:expr,
-        version: $version:expr $(,)?
+        $name:expr,
+        $desc:expr,
+        $version:expr $(,)?
     ) => {
         #[no_mangle]
         pub unsafe extern "C" fn hexchat_plugin_init(
