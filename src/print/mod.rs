@@ -212,9 +212,9 @@ pub mod events;
 
 /// Special print event types which can only be hooked, not emitted.
 ///
-/// Used with hook registration functions such as [`hook_print`](../../struct.PluginHandle.html#method.hook_print).
+/// Used with hook registration functions such as [`PluginHandle::hook_print`](../../struct.PluginHandle.html#method.hook_print).
 ///
-/// Attempting to emit these events with emission functions such as [`emit_print`](../../struct.PluginHandle.html#method.emit_print) will always fail.
+/// Attempting to emit these events with emission functions such as [`PluginHandle::emit_print`](../../struct.PluginHandle.html#method.emit_print) will always fail.
 ///
 /// Analogous to the special print events documented for [`hexchat_hook_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print).
 pub mod special;

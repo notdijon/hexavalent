@@ -186,6 +186,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
     ///
+    /// Note that this triggers any print hooks registered for the event, so be careful to avoid infinite recursion
+    /// when calling this function from hook callbacks such as [`PluginHandle::hook_print`](struct.PluginHandle.html#method.hook_print).
+    ///
     /// Analogous to [`hexchat_emit_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print).
     ///
     /// # Examples
@@ -235,6 +238,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Emits a print event, specifying its attributes.
     ///
     /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
+    ///
+    /// Note that this triggers any print hooks registered for the event, so be careful to avoid infinite recursion
+    /// when calling this function from hook callbacks such as [`PluginHandle::hook_print`](struct.PluginHandle.html#method.hook_print).
     ///
     /// Analogous to [`hexchat_emit_print_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print_attrs).
     ///
@@ -651,9 +657,6 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
     /// See also the [`print::special`](print/special/index.html) submodule for a list of special hook-only print events.
-    ///
-    /// Be careful when calling hook emission functions such as [`emit_print`](struct.PluginHandle.html#method.emit_print) from `callback`,
-    /// as emitting the same event type may cause infinite recursion.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
