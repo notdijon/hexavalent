@@ -47,27 +47,10 @@ use time::OffsetDateTime;
 
 /// Attributes associated with a print event.
 ///
+/// Used with [`PluginHandle::emit_print_attrs`](../struct.PluginHandle.html#method.emit_print_attrs)
+/// and [`PluginHandle::hook_print_attrs`](../struct.PluginHandle.html#method.hook_print_attrs).
+///
 /// Analogous to [`hexchat_event_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print_attrs).
-///
-/// # Examples
-///
-/// Emitting a print event with attributes.
-///
-/// ```rust
-/// use hexavalent::PluginHandle;
-/// use hexavalent::print::EventAttrs;
-/// use hexavalent::print::events::ChannelMessage;
-/// use time::OffsetDateTime;
-///
-/// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
-///     let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(86400 * 365 * 10));
-///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
-/// }
-/// ```
-///
-/// Registering a hook for a print event with attributes.
-///
-/// TODO use hook_print_attrs
 #[derive(Copy, Clone)]
 pub struct EventAttrs<'a> {
     time: OffsetDateTime,

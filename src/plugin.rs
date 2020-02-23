@@ -8,9 +8,11 @@ use std::ptr::{self, NonNull};
 use std::time::Duration;
 
 use libc::time_t;
+use time::OffsetDateTime;
 
 use crate::ffi::{
-    hexchat_plugin, int_to_result, with_parsed_print_words, with_parsed_words, StrExt, WordPtr,
+    hexchat_event_attrs, hexchat_plugin, int_to_result, with_parsed_print_words, with_parsed_words,
+    StrExt, WordPtr,
 };
 use crate::hook::{self, HookHandle};
 use crate::mode;
@@ -677,15 +679,21 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     /// use hexavalent::hook::{Eat, Priority};
     /// use hexavalent::print::PrintEvent;
-    /// use hexavalent::print::events::YouPart;
+    /// use hexavalent::print::events::YouPartWithReason;
     ///
-    /// fn hook_you_part<P: 'static>(ph: PluginHandle<'_, P>) {
-    ///     ph.hook_print(YouPart, Priority::Normal, you_part_cb::<P>);
+    /// struct MyPlugin;
+    ///
+    /// fn hook_you_part(ph: PluginHandle<'_, MyPlugin>) {
+    ///     ph.hook_print(YouPartWithReason, Priority::Normal, you_part_cb);
     /// }
     ///
-    /// fn you_part_cb<P>(plugin: &P, ph: PluginHandle<'_, P>, args: <YouPart as PrintEvent<'_>>::Args) -> Eat {
-    ///     let [your_nick, your_host, channel] = args;
-    ///     ph.print(&format!("You left channel {}.", channel));
+    /// fn you_part_cb(
+    ///     plugin: &MyPlugin,
+    ///     ph: PluginHandle<'_, MyPlugin>,
+    ///     args: <YouPartWithReason as PrintEvent<'_>>::Args
+    /// ) -> Eat {
+    ///     let [your_nick, your_host, channel, reason] = args;
+    ///     ph.print(&format!("You left channel {}: {}.", channel, reason));
     ///     Eat::HexChat
     /// }
     /// ```
@@ -732,6 +740,110 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                 E::NAME,
                 priority as c_int,
                 hook_print_callback::<P, E>,
+                callback as *mut c_void,
+            )
+        };
+
+        let hook = NonNull::new(hook)
+            .unwrap_or_else(|| panic!("Hook handle was null, should be infallible"));
+
+        // Safety: hook was returned by HexChat; hook is not used after this
+        unsafe { HookHandle::new(hook) }
+    }
+
+    /// Registers a print event hook with HexChat, capturing the event's attributes.
+    ///
+    /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
+    /// See also the [`print::special`](print/special/index.html) submodule for a list of special hook-only print events.
+    ///
+    /// Note that `callback` is a function pointer and not an `impl Fn()`.
+    /// This means that it cannot capture any variables; instead, use `plugin` to store state.
+    /// See the [impl header](struct.PluginHandle.html#impl-2) for more details.
+    ///
+    /// _Also_ note that passing a closure as `callback` will ICE the compiler,
+    /// due to `rustc` [bug #62529](https://github.com/rust-lang/rust/issues/62529).
+    /// A `fn` item must be used instead, as in the example below.
+    ///
+    /// Returns a [`HookHandle`](hook/struct.HookHandle.html) which can be passed to
+    /// [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) to unregister the hook.
+    ///
+    /// Analogous to [`hexchat_hook_print_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print_attrs).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::hook::{Eat, Priority};
+    /// use hexavalent::print::{EventAttrs, PrintEvent};
+    /// use hexavalent::print::events::YouPartWithReason;
+    ///
+    /// struct MyPlugin;
+    ///
+    /// fn hook_you_part(ph: PluginHandle<'_, MyPlugin>) {
+    ///     ph.hook_print_attrs(YouPartWithReason, Priority::Normal, you_part_cb);
+    /// }
+    ///
+    /// fn you_part_cb(
+    ///     plugin: &MyPlugin,
+    ///     ph: PluginHandle<'_, MyPlugin>,
+    ///     attrs: EventAttrs,
+    ///     args: <YouPartWithReason as PrintEvent<'_>>::Args
+    /// ) -> Eat {
+    ///     let [your_nick, your_host, channel, reason] = args;
+    ///     ph.print(&format!("You left channel {} at {}: {}.", channel, attrs.time(), reason));
+    ///     Eat::HexChat
+    /// }
+    /// ```
+    pub fn hook_print_attrs<E: for<'a> PrintEvent<'a>>(
+        &self,
+        event: E,
+        priority: hook::Priority,
+        callback: fn(
+            plugin: &P,
+            ph: PluginHandle<'_, P>,
+            attrs: EventAttrs<'_>,
+            args: <E as PrintEvent<'_>>::Args,
+        ) -> hook::Eat,
+    ) -> HookHandle {
+        extern "C" fn hook_print_attrs_callback<P: 'static, E: for<'a> PrintEvent<'a>>(
+            word: *mut *mut c_char,
+            attrs: *mut hexchat_event_attrs,
+            user_data: *mut c_void,
+        ) -> c_int {
+            catch_and_log_unwind("hook_print_attrs_callback", || {
+                // Safety: this is exactly the type we pass into user_data below
+                let callback: fn(
+                    plugin: &P,
+                    ph: PluginHandle<'_, P>,
+                    attrs: EventAttrs<'_>,
+                    args: <E as PrintEvent<'_>>::Args,
+                ) -> hook::Eat = unsafe { mem::transmute(user_data) };
+
+                // Safety: attrs is a valid hexchat_event_attrs pointer
+                let timestamp = unsafe { (*attrs).server_time_utc };
+                let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(timestamp));
+
+                // Safety: `word` is a valid word pointer, and is not used after this function returns
+                let word = unsafe { WordPtr::new(word) };
+
+                with_parsed_print_words(word, |words| {
+                    let args = E::c_to_args(words);
+
+                    with_plugin_state(|plugin, ph| callback(plugin, ph, attrs, args))
+                })
+            })
+            .unwrap_or(hook::Eat::None) as c_int
+        }
+
+        let _ = event;
+
+        // Safety: handle is always valid
+        let hook = unsafe {
+            ((*self.handle).hexchat_hook_print_attrs)(
+                self.handle,
+                E::NAME,
+                priority as c_int,
+                hook_print_attrs_callback::<P, E>,
                 callback as *mut c_void,
             )
         };
