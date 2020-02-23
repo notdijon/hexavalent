@@ -107,6 +107,10 @@ macro_rules! print_event {
         #[doc = $event_name]
         #[doc = "`"]
         #[doc = ""]
+        #[doc = "`"]
+        #[doc = $event_format]
+        #[doc = "`"]
+        #[doc = ""]
         #[doc = "Fields: "]
         #[doc = "["]
         $(
@@ -115,10 +119,6 @@ macro_rules! print_event {
             #[doc = "`, "]
         )*
         #[doc = "]."]
-        #[doc = ""]
-        #[doc = "Format: `"]
-        #[doc = $event_format]
-        #[doc = "`."]
         pub struct $struct_name;
 
         impl crate::print::private::PrintEventImpl for $struct_name {}
