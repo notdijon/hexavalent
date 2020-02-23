@@ -182,6 +182,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Emits a print event.
     ///
+    /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
+    ///
     /// If you do not know the print event's type statically, use [`emit_print_dyn`](struct.PluginHandle.html#method.emit_print_dyn).
     ///
     /// Analogous to [`hexchat_emit_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print).
@@ -231,6 +233,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     }
 
     /// Emits a print event, with dynamic type.
+    ///
+    /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
     ///
     /// Prefer [`emit_print`](struct.PluginHandle.html#method.emit_print) if you know the print event's type statically.
     ///
@@ -286,6 +290,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     }
 
     /// Emits a print event, specifying its attributes.
+    ///
+    /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
     ///
     /// If you do not know the print event's type statically, use [`emit_print_attrs_dyn`](struct.PluginHandle.html#method.emit_print_attrs_dyn).
     ///
@@ -354,6 +360,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     }
 
     /// Emits a print event, specifying its attributes, with dynamic type.
+    ///
+    /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
     ///
     /// Prefer [`emit_print_attrs`](struct.PluginHandle.html#method.emit_print_attrs) if you know the print event's type statically.
     ///
