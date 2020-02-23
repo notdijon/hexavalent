@@ -570,10 +570,9 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// Command names starting with `.` are hidden in `/help`.
     /// Hooking the special command `""` (empty string) captures non-commands, i.e. input without a `/` at the beginning.
     ///
-    /// Each element of `words` is an argument to the command. Similar to `argv`-style command-line arguments,
+    /// Each element of `words` is an argument to the command.
     /// `words[0]`  is the name of the command, so `words[1]` is the first user-provided argument.
-    /// Also, `words` is limited to 32 elements, and HexChat may provide excess elements, so the length of `words` is not meaningful.
-    /// (Excess elements are filled with the empty string.)
+    /// `words` is limited to 32 elements, and HexChat may provide excess elements, so the length of `words` is not meaningful.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
