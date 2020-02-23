@@ -12,8 +12,73 @@
 //!
 //! # Examples
 //!
-//! The following is HexChat's [example](https://hexchat.readthedocs.io/en/latest/plugins.html#sample-plugin) "auto-op" plugin.
-//! TODO add example when more stuff works
+//! The following is a port of HexChat's [example](https://hexchat.readthedocs.io/en/latest/plugins.html#sample-plugin) "auto-op" plugin.
+//! It will automatically OP everyone who joins (so don't try this if you're in a real channel!),
+//! and can be toggled on and off with `/autooptoggle`.
+//!
+//! ```rust
+//! use std::cell::Cell;
+//! use hexavalent::{Plugin, PluginHandle, export_plugin};
+//! use hexavalent::hook::{Eat, Priority};
+//! use hexavalent::print::PrintEvent;
+//! use hexavalent::print::events::Join;
+//!
+//! struct AutoOpPlugin {
+//!     enabled: Cell<bool>,
+//! }
+//!
+//! impl Default for AutoOpPlugin {
+//!     fn default() -> Self {
+//!         Self {
+//!             enabled: Cell::new(true),
+//!         }
+//!     }
+//! }
+//!
+//! impl AutoOpPlugin {
+//!     fn autooptoggle_cb(&self, ph: PluginHandle<'_, Self>, _words: &[&str]) -> Eat {
+//!         if !self.enabled.get() {
+//!             self.enabled.set(true);
+//!             ph.print("Auto-Oping now enabled!");
+//!         } else {
+//!             self.enabled.set(false);
+//!             ph.print("Auto-Oping now disabled!");
+//!         }
+//!         // eat this command so HexChat and other plugins can't process it
+//!         Eat::All
+//!     }
+//!
+//!     fn join_cb(&self, ph: PluginHandle<'_, Self>, args: <Join as PrintEvent<'_>>::Args) -> Eat {
+//!         let [nick, _channel, _host, _account] = args;
+//!         if self.enabled.get() {
+//!             // op ANYONE who joins
+//!             ph.command(&format!("OP {}", nick));
+//!         }
+//!         // don't eat this event, HexChat needs to see it
+//!         Eat::None
+//!     }
+//! }
+//!
+//! impl Plugin for AutoOpPlugin {
+//!     fn init(&self, ph: PluginHandle<'_, Self>) {
+//!         ph.hook_command(
+//!             "AutoOpToggle",
+//!             "Usage: AUTOOPTOGGLE, turns OFF/ON Auto-Oping",
+//!             Priority::Normal,
+//!             Self::autooptoggle_cb,
+//!         );
+//!         ph.hook_print(Join, Priority::Normal, Self::join_cb);
+//!
+//!         ph.print("AutoOpPlugin loaded successfully!");
+//!     }
+//!
+//!     fn deinit(&self, ph: PluginHandle<'_, Self>) {
+//!         ph.print("Unloading AutoOpPlugin...");
+//!     }
+//! }
+//!
+//! export_plugin!(AutoOpPlugin, "AutoOp", "Auto-Ops anyone who joins", "0.1");
+//! ```
 //!
 //! # Safety
 //!
@@ -64,7 +129,7 @@ pub use plugin::{Plugin, PluginHandle};
 ///     }
 /// }
 ///
-/// export_plugin!(NoopPlugin, "No-op", "Doesn't do anything.", "1.0.0");
+/// export_plugin!(NoopPlugin, "No-op", "Doesn't do anything", "1.0.0");
 /// ```
 ///
 /// Cargo's environment variables can also be used to copy `name`, `description`, and `version` from `Cargo.toml`.

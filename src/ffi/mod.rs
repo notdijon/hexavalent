@@ -107,6 +107,33 @@ pub fn with_parsed_words<R>(word: WordPtr, f: impl FnOnce(&[&str; 32]) -> R) -> 
     f(&words)
 }
 
+/// Converts `word` or `word_eol` to a `&CStr` slice.
+///
+/// Intended only for use with `hook_print*`, as the number of args is limited to 4.
+pub fn with_parsed_print_words<R>(word: WordPtr, f: impl FnOnce([&CStr; 4]) -> R) -> R {
+    let word = word.ptr;
+
+    // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
+    // Safety: first index is reserved, per documentation
+    let word = unsafe { word.offset(1) };
+
+    // Safety: string is null-terminated
+    let mut words = unsafe { [CStr::from_bytes_with_nul_unchecked(b"\0"); 4] };
+    for i in 0..words.len() {
+        // Safety: word points to a valid null-terminated array, so we cannot read past the end or wrap
+        let elem = unsafe { *word.offset(i as isize) };
+        if elem.is_null() {
+            break;
+        }
+        // Safety: word points to valid strings; words does not outlive this function
+        words[i] = unsafe { CStr::from_ptr(elem) };
+    }
+
+    // hexchat always passes in 4 args, so just give them all of it
+    // by-value, because then everything is kept in registers (especially if the event does not have 4 args)
+    f(words)
+}
+
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;

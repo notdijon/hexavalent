@@ -9,7 +9,9 @@ use std::time::{Duration, UNIX_EPOCH};
 
 use libc::time_t;
 
-use crate::ffi::{hexchat_plugin, int_to_result, with_parsed_words, StrExt, WordPtr};
+use crate::ffi::{
+    hexchat_plugin, int_to_result, with_parsed_print_words, with_parsed_words, StrExt, WordPtr,
+};
 use crate::hook::{self, HookHandle};
 use crate::mode;
 use crate::print::{EventAttrs, PrintEvent};
@@ -780,6 +782,99 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                 priority as c_int,
                 hook_command_callback::<P>,
                 help_text.as_ptr(),
+                callback as *mut c_void,
+            )
+        };
+
+        let hook = NonNull::new(hook)
+            .unwrap_or_else(|| panic!("Hook handle was null, should be infallible"));
+
+        // Safety: hook was returned by HexChat; hook is not used after this
+        unsafe { HookHandle::new(hook) }
+    }
+
+    /// Registers a print event hook with HexChat.
+    ///
+    /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
+    /// See also the [`print::special`](print/special/index.html) submodule for a list of special hook-only print events.
+    ///
+    /// Be careful when calling hook emission functions such as [`emit_print`](struct.PluginHandle.html#method.emit_print) from `callback`,
+    /// as emitting the same event type may cause infinite recursion.
+    ///
+    /// Note that `callback` is a function pointer and not an `impl Fn()`.
+    /// This means that it cannot capture any variables; instead, use `plugin` to store state.
+    /// See the [impl header](struct.PluginHandle.html#impl-2) for more details.
+    ///
+    /// _Also_ note that passing a closure as `callback` will ICE the compiler,
+    /// due to `rustc` [bug #62529](https://github.com/rust-lang/rust/issues/62529).
+    /// A `fn` item must be used instead, as in the example below.
+    ///
+    /// Returns a [`HookHandle`](hook/struct.HookHandle.html) which can be passed to
+    /// [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) to unregister the hook.
+    ///
+    /// Analogous to [`hexchat_hook_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::hook::{Eat, Priority};
+    /// use hexavalent::print::PrintEvent;
+    /// use hexavalent::print::events::YouPart;
+    ///
+    /// fn hook_you_part<P: 'static>(ph: PluginHandle<'_, P>) {
+    ///     ph.hook_print(YouPart, Priority::Normal, you_part_cb::<P>);
+    /// }
+    ///
+    /// fn you_part_cb<P>(plugin: &P, ph: PluginHandle<'_, P>, args: <YouPart as PrintEvent<'_>>::Args) -> Eat {
+    ///     let [your_nick, your_host, channel] = args;
+    ///     ph.print(&format!("You left channel {}.", channel));
+    ///     Eat::HexChat
+    /// }
+    /// ```
+    pub fn hook_print<E: for<'a> PrintEvent<'a>>(
+        &self,
+        event: E,
+        priority: hook::Priority,
+        callback: fn(
+            plugin: &P,
+            ph: PluginHandle<'_, P>,
+            args: <E as PrintEvent<'_>>::Args,
+        ) -> hook::Eat,
+    ) -> HookHandle {
+        extern "C" fn hook_print_callback<P: 'static, E: for<'a> PrintEvent<'a>>(
+            word: *mut *mut c_char,
+            user_data: *mut c_void,
+        ) -> c_int {
+            catch_and_log_unwind("hook_print_callback", || {
+                // Safety: this is exactly the type we pass into user_data below
+                let callback: fn(
+                    plugin: &P,
+                    ph: PluginHandle<'_, P>,
+                    args: <E as PrintEvent<'_>>::Args,
+                ) -> hook::Eat = unsafe { mem::transmute(user_data) };
+
+                // Safety: `word` is a valid word pointer, and is not used after this function returns
+                let word = unsafe { WordPtr::new(word) };
+
+                with_parsed_print_words(word, |words| {
+                    let args = E::c_to_args(words);
+
+                    with_plugin_state(|plugin, ph| callback(plugin, ph, args))
+                })
+            })
+            .unwrap_or(hook::Eat::None) as c_int
+        }
+
+        let _ = event;
+
+        // Safety: handle is always valid
+        let hook = unsafe {
+            ((*self.handle).hexchat_hook_print)(
+                self.handle,
+                E::NAME,
+                priority as c_int,
+                hook_print_callback::<P, E>,
                 callback as *mut c_void,
             )
         };
