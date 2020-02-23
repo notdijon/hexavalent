@@ -12,7 +12,7 @@ keywords = ["hexchat", "irc"]
 edition = "2018"
 
 [dependencies]
-libc = "0.2.66"
+libc = { version = "0.2.66", default-features = false }
 
 [profile.release]
 lto = true
