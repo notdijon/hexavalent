@@ -142,7 +142,7 @@ impl HookHandle {
         }
     }
 
-    /// Convert this `HookHandle` back into a native `hexchat_hook`.
+    /// Converts this `HookHandle` back into a native `hexchat_hook`.
     pub(crate) fn into_raw(self) -> NonNull<hexchat_hook> {
         self.handle
     }

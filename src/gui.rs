@@ -28,7 +28,7 @@ impl FakePluginHandle {
         Self { handle: gui_handle }
     }
 
-    /// Convert this `FakePluginHandle` back into a raw pointer.
+    /// Converts this `FakePluginHandle` back into a raw pointer.
     pub(crate) fn into_raw(self) -> NonNull<c_void> {
         self.handle
     }
