@@ -20,6 +20,7 @@ impl SimplePlugin {
     ) -> Eat {
         self.count.set(self.count.get() + 1);
         self.nicks.borrow_mut().insert(nick.to_string());
+
         Eat::None
     }
 }
@@ -27,6 +28,7 @@ impl SimplePlugin {
 impl Plugin for SimplePlugin {
     fn init(&self, ph: PluginHandle<'_, Self>) {
         ph.hook_print(ChannelMessage, Priority::Normal, Self::message_cb);
+
         ph.hook_command(
             "count\0",
             "Usage: COUNT, print message count\0",
@@ -34,13 +36,16 @@ impl Plugin for SimplePlugin {
             |plugin, ph, _words| {
                 let count = plugin.count.get();
                 let nicks = plugin.nicks.borrow().len();
+
                 ph.print(&format!(
                     "Received {} messages from {} unique nicks.\0",
                     count, nicks
                 ));
+
                 Eat::All
             },
         );
+
         ph.print("Plugin loaded successfully!\0");
     }
 
