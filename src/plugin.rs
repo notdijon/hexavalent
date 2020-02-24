@@ -207,7 +207,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 ///
 /// General functions allow printing text, running commands, creating events, and other miscellaneous operations.
 impl<'ph, P> PluginHandle<'ph, P> {
-    /// Prints text to the current tab. Text may contain mIRC color codes and formatting.
+    /// Prints text to the current context. Text may contain mIRC color codes and formatting.
     ///
     /// Analogous to [`hexchat_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_print).
     ///
@@ -229,7 +229,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         }
     }
 
-    /// Executes a command as if it were typed into HexChat's input box after a `/`.
+    /// Executes a command in the current context as if it were typed into HexChat's input box after a `/`.
     ///
     /// Analogous to [`hexchat_command`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_command).
     ///
@@ -251,7 +251,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         }
     }
 
-    /// Emits a print event.
+    /// Emits a print event in the current context.
     ///
     /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
     ///
@@ -304,7 +304,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         })
     }
 
-    /// Emits a print event, specifying its attributes.
+    /// Emits a print event in the current context, specifying its attributes.
     ///
     /// See the [`print::events`](print/events/index.html) submodule for a list of print events.
     ///
@@ -370,7 +370,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         })
     }
 
-    /// Sends channel mode changes to targets in the current channel.
+    /// Sends channel mode changes to targets in the current context.
     ///
     /// Analogous to [`hexchat_send_modes`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_send_modes).
     ///
