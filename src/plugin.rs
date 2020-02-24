@@ -450,13 +450,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let ordering =
             unsafe { ((*self.handle).hexchat_nickcmp)(self.handle, s1.as_ptr(), s2.as_ptr()) };
 
-        if ordering < 0 {
-            Ordering::Less
-        } else if ordering > 0 {
-            Ordering::Greater
-        } else {
-            Ordering::Equal
-        }
+        ordering.cmp(&0)
     }
 
     /// Strips mIRC colors and/or text attributes (bold, underline, etc.) from a string.
@@ -490,7 +484,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let mirc_flag = match mirc {
             strip::MircColors::Keep => 0,
             strip::MircColors::Remove => 1,
-        } << 0;
+        };
         let attrs_flag = match attrs {
             strip::TextAttrs::Keep => 0,
             strip::TextAttrs::Remove => 1,
@@ -674,7 +668,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// }
     /// ```
     pub fn hook_command(
-        &self,
+        self,
         name: &str,
         help_text: &str,
         priority: hook::Priority,
@@ -765,7 +759,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// }
     /// ```
     pub fn hook_print<E: for<'a> PrintEvent<'a>>(
-        &self,
+        self,
         event: E,
         priority: hook::Priority,
         callback: fn(
@@ -862,7 +856,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// }
     /// ```
     pub fn hook_print_attrs<E: for<'a> PrintEvent<'a>>(
-        &self,
+        self,
         event: E,
         priority: hook::Priority,
         callback: fn(
@@ -1056,7 +1050,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///     }
     /// }
     /// ```
-    pub fn unhook(&self, hook: HookHandle) {
+    pub fn unhook(self, hook: HookHandle) {
         let hook = hook.into_raw();
 
         // Safety: handle is always valid; hook is valid due to HookHandle invariant
@@ -1114,7 +1108,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// Analogous to [`hexchat_plugingui_add`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_plugingui_add).
     pub fn plugingui_add(
-        &self,
+        self,
         filename: &str,
         name: &str,
         desc: &str,
@@ -1149,7 +1143,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Used with [`PluginHandle::plugingui_add`](struct.PluginHandle.html#method.plugingui_add).
     ///
     /// Analogous to [`hexchat_plugingui_remove`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_plugingui_remove).
-    pub fn plugingui_remove(&self, gui: FakePluginHandle) {
+    pub fn plugingui_remove(self, gui: FakePluginHandle) {
         let gui = gui.into_raw();
 
         // Safety: handle is always valid; hook is valid due to HookHandle invariant

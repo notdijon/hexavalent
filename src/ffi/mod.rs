@@ -86,18 +86,18 @@ pub fn with_parsed_words<R>(word: WordPtr, f: impl FnOnce(&[&str; 32]) -> R) -> 
 
     // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
     // Safety: first index is reserved, per documentation
-    let word = unsafe { word.offset(1) };
+    let word = unsafe { word.add(1) };
 
     let mut words = [""; 32];
-    for i in 0..words.len() {
+    for (i, w) in words.iter_mut().enumerate() {
         // Safety: word points to a valid null-terminated array, so we cannot read past the end or wrap
-        let elem = unsafe { *word.offset(i as isize) };
+        let elem = unsafe { *word.add(i) };
         if elem.is_null() {
             break;
         }
         // Safety: word points to valid strings; words does not outlive this function
         let cstr = unsafe { CStr::from_ptr(elem) };
-        words[i] = cstr
+        *w = cstr
             .to_str()
             .unwrap_or_else(|e| panic!("Invalid UTF8 in field index {}: {}", i, e));
     }
@@ -115,18 +115,18 @@ pub fn with_parsed_print_words<R>(word: WordPtr, f: impl FnOnce([&CStr; 4]) -> R
 
     // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
     // Safety: first index is reserved, per documentation
-    let word = unsafe { word.offset(1) };
+    let word = unsafe { word.add(1) };
 
     // Safety: string is null-terminated
     let mut words = unsafe { [CStr::from_bytes_with_nul_unchecked(b"\0"); 4] };
-    for i in 0..words.len() {
+    for (i, w) in words.iter_mut().enumerate() {
         // Safety: word points to a valid null-terminated array, so we cannot read past the end or wrap
-        let elem = unsafe { *word.offset(i as isize) };
+        let elem = unsafe { *word.add(i) };
         if elem.is_null() {
             break;
         }
         // Safety: word points to valid strings; words does not outlive this function
-        words[i] = unsafe { CStr::from_ptr(elem) };
+        *w = unsafe { CStr::from_ptr(elem) };
     }
 
     // hexchat always passes in 4 args, so just give them all of it
