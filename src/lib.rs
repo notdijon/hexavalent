@@ -102,6 +102,7 @@ mod state;
 #[doc(hidden)]
 pub mod internal;
 
+pub mod gui;
 pub mod hook;
 pub mod mode;
 pub mod print;

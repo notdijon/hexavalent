@@ -14,6 +14,7 @@ use crate::ffi::{
     hexchat_event_attrs, hexchat_plugin, int_to_result, with_parsed_print_words, with_parsed_words,
     StrExt, WordPtr,
 };
+use crate::gui::FakePluginHandle;
 use crate::hook::{self, HookHandle};
 use crate::mode;
 use crate::print::{EventAttrs, PrintEvent};
@@ -1056,10 +1057,10 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// }
     /// ```
     pub fn unhook(&self, hook: HookHandle) {
-        let hook = hook.into_raw().as_ptr();
+        let hook = hook.into_raw();
 
         // Safety: handle is always valid; hook is valid due to HookHandle invariant
-        let _ = unsafe { ((*self.handle).hexchat_unhook)(self.handle, hook) };
+        let _ = unsafe { ((*self.handle).hexchat_unhook)(self.handle, hook.as_ptr()) };
     }
 
     /* TODO
@@ -1103,8 +1104,55 @@ impl<'ph, P> PluginHandle<'ph, P> {
 ///
 /// Allows you to add and remove fake plugins from the plugin GUI.
 impl<'ph, P> PluginHandle<'ph, P> {
-    /* TODO
-        hexchat_plugingui_add,
-        hexchat_plugingui_remove,
-    */
+    /// Adds a fake plugin to the plugin GUI.
+    ///
+    /// Only useful if your plugin loads other plugins.
+    /// Do not call this function with the same arguments you pass to [`export_plugin`](macro.export_plugin.html).
+    ///
+    /// Returns a [`FakePluginHandle`](gui/struct.FakePluginHandle.html) which can be passed to
+    /// [`PluginHandle::plugingui_remove`](struct.PluginHandle.html#method.plugingui_remove) to remove the fake plugin.
+    ///
+    /// Analogous to [`hexchat_plugingui_add`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_plugingui_add).
+    pub fn plugingui_add(
+        &self,
+        filename: &str,
+        name: &str,
+        desc: &str,
+        version: &str,
+    ) -> FakePluginHandle {
+        let filename = filename.into_cstr();
+        let name = name.into_cstr();
+        let desc = desc.into_cstr();
+        let version = version.into_cstr();
+
+        // Safety: handle is always valid
+        let gui = unsafe {
+            ((*self.handle).hexchat_plugingui_add)(
+                self.handle,
+                filename.as_ptr(),
+                name.as_ptr(),
+                desc.as_ptr(),
+                version.as_ptr(),
+                ptr::null_mut(),
+            )
+        };
+
+        let gui = NonNull::new(gui)
+            .unwrap_or_else(|| panic!("GUI handle was null, should be infallible"));
+
+        // Safety: gui was returned by HexChat; gui is not used after this
+        unsafe { FakePluginHandle::new(gui) }
+    }
+
+    /// Removes a fake plugin from the plugin GUI.
+    ///
+    /// Used with [`PluginHandle::plugingui_add`](struct.PluginHandle.html#method.plugingui_add).
+    ///
+    /// Analogous to [`hexchat_plugingui_remove`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_plugingui_remove).
+    pub fn plugingui_remove(&self, gui: FakePluginHandle) {
+        let gui = gui.into_raw();
+
+        // Safety: handle is always valid; hook is valid due to HookHandle invariant
+        unsafe { ((*self.handle).hexchat_plugingui_remove)(self.handle, gui.as_ptr()) };
+    }
 }
