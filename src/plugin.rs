@@ -10,6 +10,7 @@ use std::time::Duration;
 use libc::time_t;
 use time::OffsetDateTime;
 
+use crate::context::{Context, ContextHandle};
 use crate::ffi::{
     hexchat_event_attrs, hexchat_plugin, int_to_result, with_parsed_print_words, with_parsed_words,
     StrExt, WordPtr,
@@ -1073,11 +1074,108 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 ///
 /// Allows you to work with server/channel contexts.
 impl<'ph, P> PluginHandle<'ph, P> {
-    /* TODO
-        hexchat_find_context,
-        hexchat_get_context,
-        hexchat_set_context,
-    */
+    /// Finds a server/channel context based on various criteria.
+    ///
+    /// See [`Context`](context/enum.Context.html) for available criteria.
+    /// These include: the currently-focused tab, a specified channel, or the frontmost tab in a server.
+    ///
+    /// Returns a [`ContextHandle`](context/struct.ContextHandle.html) which can be passed to
+    /// [`PluginHandle::enter_context`](struct.PluginHandle.html#method.enter_context) to enter the context.
+    ///
+    /// Analogous to [`hexchat_find_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_find_context).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::context::Context;
+    ///
+    /// fn find_context_example<P>(ph: PluginHandle<'_, P>) {
+    ///     if let Some(ctxt) = ph.find_context(Context::Focused) {
+    ///         ph.enter_context(ctxt, || ph.print("This tab is focused!\0"));
+    ///     }
+    ///     if let Some(ctxt) = ph.find_context(Context::Channel { servname: "Snoonet\0", channel: "#help\0" }) {
+    ///         ph.enter_context(ctxt, || ph.print("This tab is #help on snoonet!\0"));
+    ///     }
+    ///     if let Some(ctxt) = ph.find_context(Context::FrontmostChannelIn { servname: "Snoonet\0" }) {
+    ///         ph.enter_context(ctxt, || ph.print("This tab is frontmost on snoonet!\0"));
+    ///     }
+    /// }
+    /// ```
+    pub fn find_context(self, find: Context<'_>) -> Option<ContextHandle<'ph>> {
+        let (servname, channel) = match find {
+            Context::Focused => (None, None),
+            Context::Channel { servname, channel } => {
+                (Some(servname.into_cstr()), Some(channel.into_cstr()))
+            }
+            Context::FrontmostChannelIn { servname } => (Some(servname.into_cstr()), None),
+            Context::InAnyServer { channel } => (None, Some(channel.into_cstr())),
+        };
+
+        let servname = servname.as_ref().map_or_else(ptr::null, |s| s.as_ptr());
+        let channel = channel.as_ref().map_or_else(ptr::null, |c| c.as_ptr());
+
+        // Safety: handle is always valid
+        let context =
+            unsafe { ((*self.handle).hexchat_find_context)(self.handle, servname, channel) };
+
+        // Safety: context is either a valid hexchat_context pointer or null
+        NonNull::new(context).map(|c| unsafe { ContextHandle::new(c) })
+    }
+
+    /// Executes a function in a different server/channel context.
+    ///
+    /// Used with [`PluginHandle::find_context`](struct.PluginHandle.html#method.find_context).
+    ///
+    /// Note that this is not necessary for most simple plugins, which listen to events
+    /// and perform actions in the channel each event came from.
+    /// It is only useful if you need to perform an action in a different channel.
+    ///
+    /// Analogous to [`hexchat_get_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_context) and
+    /// [`hexchat_set_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_set_context).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::context::Context;
+    ///
+    /// fn send_message_to_channel<P>(
+    ///     ph: PluginHandle<'_, P>,
+    ///     servname: &str,
+    ///     channel: &str,
+    ///     message: &str,
+    /// ) -> Result<(), ()> {
+    ///     let ctxt = match ph.find_context(Context::Channel { servname, channel }) {
+    ///         Some(ctxt) => ctxt,
+    ///         None => return Err(()),
+    ///     };
+    ///     ph.enter_context(ctxt, || {
+    ///         ph.print(message);
+    ///         Ok(())
+    ///     })
+    /// }
+    /// ```
+    pub fn enter_context<R>(self, context: ContextHandle<'_>, f: impl FnOnce() -> R) -> R {
+        // Safety: handle is always valid
+        let old_context = unsafe { ((*self.handle).hexchat_get_context)(self.handle) };
+
+        // Safety: handle is always valid; context contains a valid pointer
+        int_to_result(unsafe {
+            ((*self.handle).hexchat_set_context)(self.handle, context.as_ptr().as_ptr())
+        })
+        // this should be infallible, since the lifetime on ContextHandle prevents it from being stored,
+        // and it should not be invalidated while our code is running
+        .unwrap_or_else(|_| panic!("Channel invalidated while plugin running"));
+
+        // Safety: handle is always valid; old_context is a valid pointer
+        defer! {
+            int_to_result(unsafe { ((*self.handle).hexchat_set_context)(self.handle, old_context) })
+                .unwrap_or_else(|_| panic!("Failed to switch back to original context"))
+        };
+
+        f()
+    }
 }
 
 /// [Plugin Preferences](https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-preferences)

@@ -1,0 +1,69 @@
+//! Types related to server/channel contexts.
+
+use std::marker::PhantomData;
+use std::ptr::NonNull;
+
+use crate::ffi::hexchat_context;
+
+/// Criteria used to find a server/channel context.
+///
+/// Used with [`PluginHandle::find_context`](../struct.PluginHandle.html#method.find_context).
+///
+/// Analogous to arguments passed to [`hexchat_find_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_find_context).
+pub enum Context<'a> {
+    /// The currently-focused tab/window.
+    Focused,
+    /// The specified channel in the specified server.
+    Channel {
+        /// The server name.
+        servname: &'a str,
+        /// The channel name.
+        channel: &'a str,
+    },
+    /// The frontmost channel in the specified server.
+    FrontmostChannelIn {
+        /// The server name.
+        servname: &'a str,
+    },
+    /// A channel with the specified name in any server.
+    ///
+    /// Use `Context::Channel` instead of this variant if possible,
+    /// as the wrong context may be selected if the same channel name
+    /// is used in multiple servers.
+    InAnyServer {
+        /// The channel name.
+        channel: &'a str,
+    },
+}
+
+/// A handle to a server/channel context in HexChat.
+///
+/// Cannot be constructed in user code, but is returned from
+/// [`PluginHandle::find_context`](../struct.PluginHandle.html#method.find_context).
+///
+/// Can be passed to [`PluginHandle::enter_context`](../struct.PluginHandle.html#method.enter_context) to run code in the context.
+#[derive(Copy, Clone)]
+#[must_use = "context handles do nothing on their own, you must call `enter_context` yourself"]
+pub struct ContextHandle<'a> {
+    handle: NonNull<hexchat_context>,
+    _lifetime: PhantomData<&'a hexchat_context>,
+}
+
+impl<'a> ContextHandle<'a> {
+    /// Creates a new `ContextHandle` from a native `hexchat_context`.
+    ///
+    /// # Safety
+    ///
+    /// `context_handle` must point to a valid instance of `hexchat_context`.
+    pub(crate) unsafe fn new(context_handle: NonNull<hexchat_context>) -> Self {
+        Self {
+            handle: context_handle,
+            _lifetime: PhantomData,
+        }
+    }
+
+    /// Converts this `ContextHandle` back into a native `hexchat_context`.
+    pub(crate) fn as_ptr(self) -> NonNull<hexchat_context> {
+        self.handle
+    }
+}
