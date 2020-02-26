@@ -1179,19 +1179,139 @@ impl<'ph, P> PluginHandle<'ph, P> {
         f()
     }
 }
-
+// todo better errors - no Result<_, ()> in public apis
+//  use mod error; import thiserror
 /// [Plugin Preferences](https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-preferences)
 ///
 /// Allows you to get and set preferences associated with your plugin.
 impl<'ph, P> PluginHandle<'ph, P> {
-    /* TODO
-        hexchat_pluginpref_set_str,
-        hexchat_pluginpref_get_str,
-        hexchat_pluginpref_set_int,
-        hexchat_pluginpref_get_int,
-        hexchat_pluginpref_delete,
-        hexchat_pluginpref_list,
-    */
+    /// Sets a plugin-specific string preference.
+    ///
+    /// Fails if `value` exceeds 511 bytes in length.
+    ///
+    /// Analogous to [`hexchat_pluginpref_set_str`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_set_str).
+    pub fn pluginpref_set_str(self, name: &str, value: &str) -> Result<(), ()> {
+        let name = name.into_cstr();
+        let value = value.into_cstr();
+
+        // Undocumented limit of 512 characters
+        // https://github.com/hexchat/hexchat/blob/57478b65758e6b697b1d82ce21075e74aa475efc/src/common/plugin.c#L1950
+        // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list
+        if value.to_bytes_with_nul().len() > 512 {
+            return Err(());
+        }
+
+        // Safety: handle is always valid
+        int_to_result(unsafe {
+            ((*self.handle).hexchat_pluginpref_set_str)(self.handle, name.as_ptr(), value.as_ptr())
+        })
+    }
+
+    /// Gets a plugin-specific string preference.
+    ///
+    /// Note that int preferences can be successfully loaded as strings.
+    ///
+    /// Analogous to [`hexchat_pluginpref_get_str`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_get_str).
+    pub fn pluginpref_get_str(self, name: &str) -> Result<String, ()> {
+        let name = name.into_cstr();
+
+        // Undocumented limit of 512 characters
+        // https://github.com/hexchat/hexchat/blob/57478b65758e6b697b1d82ce21075e74aa475efc/src/common/plugin.c#L1950
+        // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list
+        let mut buf = [0; 512];
+
+        // Safety: handle is always valid
+        // (Un)Safety: no length argument, better hope they never change the 512 max length
+        int_to_result(unsafe {
+            ((*self.handle).hexchat_pluginpref_get_str)(
+                self.handle,
+                name.as_ptr(),
+                buf.as_mut_ptr(),
+            )
+        })?;
+
+        *buf.last_mut().unwrap() = 0;
+        // Safety: buf is definitely null-terminated; temporary is immediately copied to an owned string
+        let str = unsafe { CStr::from_ptr(buf.as_ptr()) }
+            .to_str()
+            .map(|s| s.to_owned());
+
+        Ok(str.unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_pluginpref_get_str`: {}", e)))
+    }
+
+    /// Sets a plugin-specific int preference.
+    ///
+    /// Fails if `value` is `-`, as `-1` is reserved.
+    ///
+    /// Analogous to [`hexchat_pluginpref_set_int`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_set_int).
+    pub fn pluginpref_set_int(self, name: &str, value: i32) -> Result<(), ()> {
+        let name = name.into_cstr();
+
+        // Safety: handle is always valid
+        int_to_result(unsafe {
+            ((*self.handle).hexchat_pluginpref_set_int)(self.handle, name.as_ptr(), value as c_int)
+        })
+    }
+
+    /// Gets a plugin-specific int preference.
+    ///
+    /// Analogous to [`hexchat_pluginpref_get_int`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_get_int).
+    pub fn pluginpref_get_int(self, name: &str) -> Result<i32, ()> {
+        let name = name.into_cstr();
+
+        // Safety: handle is always valid
+        let value =
+            unsafe { ((*self.handle).hexchat_pluginpref_get_int)(self.handle, name.as_ptr()) };
+
+        match value {
+            -1 => Err(()),
+            _ => Ok(value as i32),
+        }
+    }
+
+    /// Deletes a plugin-specific preference.
+    ///
+    /// Returns `Ok(())` both when an existing preference is deleted and when no preference with `name` exists.
+    ///
+    /// Analogous to [`hexchat_pluginpref_delete`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_delete).
+    pub fn pluginpref_delete(self, name: &str) -> Result<(), ()> {
+        let name = name.into_cstr();
+
+        // Safety: handle is always valid
+        int_to_result(unsafe {
+            ((*self.handle).hexchat_pluginpref_delete)(self.handle, name.as_ptr())
+        })
+    }
+
+    /// Lists the names of all plugin-specific preferences.
+    ///
+    /// Note that the total length of all preference names is limited to about 4095 bytes.
+    ///
+    /// Analogous to [`hexchat_pluginpref_list`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list).
+    pub fn pluginpref_list(self) -> Result<Vec<String>, ()> {
+        // Documented limit of 4096 characters
+        // https://github.com/hexchat/hexchat/blob/57478b65758e6b697b1d82ce21075e74aa475efc/src/common/plugin.c#L2016
+        // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list
+        let mut buf = [0; 4096];
+
+        // Safety: handle is always valid
+        int_to_result(unsafe {
+            ((*self.handle).hexchat_pluginpref_list)(self.handle, buf.as_mut_ptr())
+        })?;
+
+        *buf.last_mut().unwrap() = 0;
+        // Safety: buf is definitely null-terminated; str does not outlive buf
+        let str = unsafe { CStr::from_ptr(buf.as_ptr()) }
+            .to_str()
+            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_pluginpref_list`: {}", e));
+
+        let str = str.trim_end_matches(',');
+
+        Ok(match str {
+            "" => Vec::new(),
+            _ => str.split(',').map(|s| s.to_owned()).collect(),
+        })
+    }
 }
 
 /// [Plugin GUI](https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-gui)
