@@ -504,7 +504,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
         defer! { unsafe { ((*self.handle).hexchat_free)(self.handle, stripped_ptr as *mut _) } };
 
         // Safety: hexchat_strip returns a valid pointer or null; temporary is immediately copied to an owned string
-        let stripped = unsafe { CStr::from_ptr(stripped_ptr).to_str().map(|s| s.to_owned()) };
+        let stripped = unsafe { CStr::from_ptr(stripped_ptr) }
+            .to_str()
+            .map(|s| s.to_owned());
 
         Ok(stripped.unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e)))
     }
