@@ -97,7 +97,7 @@ use crate::strip;
 pub trait Plugin: Default + 'static {
     /// Initialize your plugin.
     ///
-    /// Use this method to perform any work that should be done when your plugin is loaded,
+    /// Use this function to perform any work that should be done when your plugin is loaded,
     /// such as registering hooks or printing startup messages.
     ///
     /// Analogous to [`hexchat_plugin_init`](https://hexchat.readthedocs.io/en/latest/plugins.html#sample-plugin).
@@ -120,10 +120,10 @@ pub trait Plugin: Default + 'static {
 
     /// Deinitialize your plugin.
     ///
-    /// Use this method to perform any work that should be done when your plugin is unloaded,
+    /// Use this function to perform any work that should be done when your plugin is unloaded,
     /// such as printing shutdown messages or statistics.
     ///
-    /// You do not need to call [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) in this method,
+    /// You do not need to call [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) in this function,
     /// as remaining hooks are automatically removed by HexChat when your plugin finishes unloading.
     ///
     /// Analogous to [`hexchat_plugin_deinit`](https://hexchat.readthedocs.io/en/latest/plugins.html#sample-plugin).
@@ -156,7 +156,7 @@ pub trait Plugin: Default + 'static {
 /// [`Plugin::deinit`](trait.Plugin.html#method.deinit),
 /// and hook callbacks such as [`PluginHandle::hook_command`](struct.PluginHandle.html#method.hook_command).
 ///
-/// Most of HexChat's [functions](https://hexchat.readthedocs.io/en/latest/plugins.html#functions) are available as struct methods,
+/// Most of HexChat's [functions](https://hexchat.readthedocs.io/en/latest/plugins.html#functions) are available as associated functions,
 /// without the `hexchat_` prefix.
 ///
 /// # Examples
