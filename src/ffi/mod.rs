@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::ffi::{CStr, CString};
+use std::marker::PhantomData;
 use std::os::raw::{c_char, c_int};
 
 mod bindings;
@@ -53,85 +54,45 @@ impl<'a> StrExt for &'a str {
     }
 }
 
-/// Holds a HexChat `word` or `word_eol` pointer.
-pub struct WordPtr {
-    /// Always points to a valid `word` or `word_eol` array.
-    ptr: *mut *mut c_char,
-}
-
-impl WordPtr {
-    /// Creates a new `WordPtr` from a `word` or `word_eol` pointer.
-    ///
-    /// # Safety
-    ///
-    /// `word` must be a `word` or `word_eol` pointer from HexChat.
-    /// Calling this function with pointers from anywhere else, even other pointers returned from HexChat,
-    /// is undefined behavior.
-    ///
-    /// See: https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
-    ///
-    /// It is your responsibility to ensure that the returned `WordPtr` does not outlive the `word` pointer used to create it.
-    pub unsafe fn new(word: *mut *mut c_char) -> Self {
-        Self { ptr: word }
-    }
-}
-
-/// Converts `word` or `word_eol` to a `&CStr` slice.
+/// Converts `word` or `word_eol` to an iterator over `&CStr`.
 ///
-/// # Panics
+/// # Safety
 ///
-/// If any element of `word` contains invalid UTF8.
-pub fn with_parsed_words<R>(word: WordPtr, f: impl FnOnce(&[&str; 32]) -> R) -> R {
-    let word = word.ptr;
-
+/// `word` must be a `word` or `word_eol` pointer from HexChat.
+///
+/// `word` must be valid for the entire lifetime `'a`.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+pub unsafe fn word_to_iter<'a>(word: &'a *mut *mut c_char) -> impl Iterator<Item = &'a CStr> {
     // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
     // Safety: first index is reserved, per documentation
-    let word = unsafe { word.add(1) };
+    let word = word.add(1);
 
-    let mut words = [""; 32];
-    for (i, w) in words.iter_mut().enumerate() {
-        // Safety: word points to a valid null-terminated array, so we cannot read past the end or wrap
-        let elem = unsafe { *word.add(i) };
-        if elem.is_null() {
-            break;
-        }
-        // Safety: word points to valid strings; words does not outlive this function
-        let cstr = unsafe { CStr::from_ptr(elem) };
-        *w = cstr
-            .to_str()
-            .unwrap_or_else(|e| panic!("Invalid UTF8 in field index {}: {}", i, e));
+    struct WordIter<'a> {
+        word: *mut *mut c_char,
+        _lifetime: PhantomData<&'a *mut c_char>,
     }
 
-    // hexchat always passes in 32 args, so just give them all of it
-    // not by-value, because that results in a stack-to-stack memcpy, even when everything is inlined :(
-    f(&words)
-}
+    impl<'a> Iterator for WordIter<'a> {
+        type Item = &'a CStr;
 
-/// Converts `word` or `word_eol` to a `&CStr` slice.
-///
-/// Intended only for use with `hook_print*`, as the number of args is limited to 4.
-pub fn with_parsed_print_words<R>(word: WordPtr, f: impl FnOnce([&CStr; 4]) -> R) -> R {
-    let word = word.ptr;
-
-    // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
-    // Safety: first index is reserved, per documentation
-    let word = unsafe { word.add(1) };
-
-    // Safety: string is null-terminated
-    let mut words = unsafe { [CStr::from_bytes_with_nul_unchecked(b"\0"); 4] };
-    for (i, w) in words.iter_mut().enumerate() {
-        // Safety: word points to a valid null-terminated array, so we cannot read past the end or wrap
-        let elem = unsafe { *word.add(i) };
-        if elem.is_null() {
-            break;
+        fn next(&mut self) -> Option<Self::Item> {
+            // Safety: word points to a valid null-terminated array, so we cannot read past the end or wrap
+            let elem = unsafe { *self.word };
+            if elem.is_null() {
+                None
+            } else {
+                // Safety: elem is not null, so there is at least one more element in the array (possibly null)
+                self.word = unsafe { self.word.add(1) };
+                // Safety: word points to valid strings; words does not outlive 'a
+                Some(unsafe { CStr::from_ptr::<'a>(elem) })
+            }
         }
-        // Safety: word points to valid strings; words does not outlive this function
-        *w = unsafe { CStr::from_ptr(elem) };
     }
 
-    // hexchat always passes in 4 args, so just give them all of it
-    // by-value, because then everything is kept in registers (especially if the event does not have 4 args)
-    f(words)
+    WordIter::<'a> {
+        word,
+        _lifetime: PhantomData,
+    }
 }
 
 #[cfg(test)]

@@ -100,7 +100,7 @@ pub unsafe trait PrintEvent<'a>: private::PrintEventImpl {
     ///
     /// If `c_args` contains invalid UTF8.
     #[doc(hidden)]
-    fn c_to_args(c_args: [&'a CStr; 4]) -> Self::Args;
+    fn c_to_args(c_args: impl Iterator<Item = &'a CStr>) -> Self::Args;
 }
 
 pub(crate) mod private {
@@ -136,6 +136,10 @@ macro_rules! print_event {
         #[doc = "]."]
         pub struct $struct_name;
 
+        impl $struct_name {
+            const FIELD_COUNT: usize = count!($($index)*);
+        }
+
         impl crate::print::private::PrintEventImpl for $struct_name {}
 
         unsafe impl<'a> crate::print::PrintEvent<'a> for $struct_name {
@@ -154,12 +158,12 @@ macro_rules! print_event {
             )*
             #[doc = ""]
             #[doc = "]"]
-            type Args = [&'a str; count!($($index)*)];
+            type Args = [&'a str; Self::FIELD_COUNT];
 
             #[doc(hidden)]
             #[allow(unused_variables)]
             fn args_to_c<R>(args: Self::Args, f: impl FnOnce(&[&::std::ffi::CStr]) -> R) -> R {
-                let args: [::std::borrow::Cow::<'_, ::std::ffi::CStr>; count!($($index)*)] = [
+                let args: [::std::borrow::Cow::<'_, ::std::ffi::CStr>; Self::FIELD_COUNT] = [
                     $(crate::ffi::StrExt::into_cstr(args[$index])),*
                 ];
                 let args = [
@@ -170,17 +174,29 @@ macro_rules! print_event {
 
             #[doc(hidden)]
             #[allow(unused_variables)]
-            fn c_to_args(c_args: [&'a ::std::ffi::CStr; 4]) -> Self::Args {
+            #[allow(unused_mut)]
+            fn c_to_args(mut c_args: impl Iterator<Item = &'a ::std::ffi::CStr>) -> Self::Args {
                 [
                     $(
-                        c_args[$index].to_str().unwrap_or_else(|e| {
-                            panic!(
-                                "Invalid UTF8 in field index {} of event '{}': {}",
-                                stringify!($index),
-                                $event_name,
-                                e,
-                            )
-                        })
+                        c_args
+                            .next()
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "Insufficient fields in event '{}': expected {}, found {}",
+                                     $event_name,
+                                     Self::FIELD_COUNT,
+                                     $index
+                                 )
+                            })
+                            .to_str()
+                            .unwrap_or_else(|e| {
+                                panic!(
+                                    "Invalid UTF8 in field index {} of event '{}': {}",
+                                    $index,
+                                    $event_name,
+                                    e,
+                                )
+                            })
                     ),*
                 ]
             }

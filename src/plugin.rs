@@ -11,10 +11,7 @@ use libc::time_t;
 use time::OffsetDateTime;
 
 use crate::context::{Context, ContextHandle};
-use crate::ffi::{
-    hexchat_event_attrs, hexchat_plugin, int_to_result, with_parsed_print_words, with_parsed_words,
-    StrExt, WordPtr,
-};
+use crate::ffi::{hexchat_event_attrs, hexchat_plugin, int_to_result, word_to_iter, StrExt};
 use crate::gui::FakePluginHandle;
 use crate::hook::{self, HookHandle};
 use crate::mode;
@@ -687,12 +684,18 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                 let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> hook::Eat =
                     unsafe { mem::transmute(user_data) };
 
-                // Safety: `word` is a valid word pointer, and is not used after this function returns
-                let word = unsafe { WordPtr::new(word) };
+                // Safety: `word` is a valid word pointer for this entire callback
+                let word = unsafe { word_to_iter(&word) };
 
-                with_parsed_words(word, |words| {
-                    with_plugin_state(|plugin, ph| callback(plugin, ph, words))
-                })
+                let mut words = [""; 32];
+
+                for (i, (ws, w)) in words.iter_mut().zip(word).enumerate() {
+                    *ws = w
+                        .to_str()
+                        .unwrap_or_else(|e| panic!("Invalid UTF8 in field index {}: {}", i, e));
+                }
+
+                with_plugin_state(|plugin, ph| callback(plugin, ph, &words))
             })
             .unwrap_or(hook::Eat::None) as c_int
         }
@@ -783,14 +786,12 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                     args: <E as PrintEvent<'_>>::Args,
                 ) -> hook::Eat = unsafe { mem::transmute(user_data) };
 
-                // Safety: `word` is a valid word pointer, and is not used after this function returns
-                let word = unsafe { WordPtr::new(word) };
+                // Safety: `word` is a valid word pointer for this entire callback
+                let word = unsafe { word_to_iter(&word) };
 
-                with_parsed_print_words(word, |words| {
-                    let args = E::c_to_args(words);
+                let args = E::c_to_args(word);
 
-                    with_plugin_state(|plugin, ph| callback(plugin, ph, args))
-                })
+                with_plugin_state(|plugin, ph| callback(plugin, ph, args))
             })
             .unwrap_or(hook::Eat::None) as c_int
         }
@@ -887,14 +888,12 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                 let timestamp = unsafe { (*attrs).server_time_utc };
                 let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(timestamp));
 
-                // Safety: `word` is a valid word pointer, and is not used after this function returns
-                let word = unsafe { WordPtr::new(word) };
+                // Safety: `word` is a valid word pointer for this entire callback
+                let word = unsafe { word_to_iter(&word) };
 
-                with_parsed_print_words(word, |words| {
-                    let args = E::c_to_args(words);
+                let args = E::c_to_args(word);
 
-                    with_plugin_state(|plugin, ph| callback(plugin, ph, attrs, args))
-                })
+                with_plugin_state(|plugin, ph| callback(plugin, ph, attrs, args))
             })
             .unwrap_or(hook::Eat::None) as c_int
         }
