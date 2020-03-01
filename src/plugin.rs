@@ -1179,8 +1179,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         f()
     }
 }
-// todo better errors - no Result<_, ()> in public apis
-//  use mod error; import thiserror
+
 /// [Plugin Preferences](https://hexchat.readthedocs.io/en/latest/plugins.html#plugin-preferences)
 ///
 /// Allows you to get and set preferences associated with your plugin.
