@@ -504,9 +504,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
         // Safety: hexchat_strip returns a valid pointer or null; temporary is immediately copied to an owned string
         let stripped = unsafe { CStr::from_ptr(stripped_ptr) }
             .to_str()
-            .map(|s| s.to_owned());
+            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e))
+            .to_owned();
 
-        Ok(stripped.unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e)))
+        Ok(stripped)
     }
 }
 
@@ -1420,9 +1421,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
         // Safety: buf is definitely null-terminated; temporary is immediately copied to an owned string
         let str = unsafe { CStr::from_ptr(buf.as_ptr()) }
             .to_str()
-            .map(|s| s.to_owned());
+            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_pluginpref_get_str`: {}", e))
+            .to_owned();
 
-        Ok(str.unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_pluginpref_get_str`: {}", e)))
+        Ok(str)
     }
 
     /// Sets a plugin-specific int preference.
