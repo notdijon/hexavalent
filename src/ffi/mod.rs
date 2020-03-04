@@ -87,6 +87,21 @@ pub unsafe fn word_to_iter<'a>(word: &'a *mut *mut c_char) -> impl Iterator<Item
                 Some(unsafe { CStr::from_ptr::<'a>(elem) })
             }
         }
+
+        fn nth(&mut self, mut n: usize) -> Option<Self::Item> {
+            while n > 0 {
+                let elem = unsafe { *self.word };
+                if elem.is_null() {
+                    // nothing
+                } else {
+                    // Safety: elem is not null, so there is at least one more element in the array (possibly null)
+                    self.word = unsafe { self.word.add(1) };
+                }
+                n -= 1;
+            }
+
+            self.next()
+        }
     }
 
     WordIter::<'a> {

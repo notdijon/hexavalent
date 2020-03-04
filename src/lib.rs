@@ -19,9 +19,9 @@
 //! ```rust
 //! use std::cell::Cell;
 //! use hexavalent::{Plugin, PluginHandle, export_plugin};
+//! use hexavalent::events::Event;
+//! use hexavalent::events::print::Join;
 //! use hexavalent::hook::{Eat, Priority};
-//! use hexavalent::print::PrintEvent;
-//! use hexavalent::print::events::Join;
 //!
 //! struct AutoOpPlugin {
 //!     enabled: Cell<bool>,
@@ -48,7 +48,7 @@
 //!         Eat::All
 //!     }
 //!
-//!     fn join_cb(&self, ph: PluginHandle<'_, Self>, args: <Join as PrintEvent<'_>>::Args) -> Eat {
+//!     fn join_cb(&self, ph: PluginHandle<'_, Self>, args: <Join as Event<'_>>::Args) -> Eat {
 //!         let [nick, _channel, _host, _account] = args;
 //!         if self.enabled.get() {
 //!             // op ANYONE who joins
@@ -103,10 +103,10 @@ mod state;
 pub mod internal;
 
 pub mod context;
+pub mod events;
 pub mod gui;
 pub mod hook;
 pub mod mode;
-pub mod print;
 pub mod strip;
 
 pub use plugin::{Plugin, PluginHandle};

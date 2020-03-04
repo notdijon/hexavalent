@@ -1,9 +1,9 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 
+use hexavalent::events::print::ChannelMessage;
+use hexavalent::events::Event;
 use hexavalent::hook::{Eat, Priority};
-use hexavalent::print::events::ChannelMessage;
-use hexavalent::print::PrintEvent;
 use hexavalent::{export_plugin, Plugin, PluginHandle};
 
 #[derive(Default)]
@@ -16,7 +16,7 @@ impl SimplePlugin {
     fn message_cb(
         &self,
         _ph: PluginHandle<'_, Self>,
-        [nick, _text, _mode, _ident]: <ChannelMessage as PrintEvent<'_>>::Args,
+        [nick, _text, _mode, _ident]: <ChannelMessage as Event<'_>>::Args,
     ) -> Eat {
         self.count.set(self.count.get() + 1);
         self.nicks.borrow_mut().insert(nick.to_string());
