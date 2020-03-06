@@ -41,9 +41,9 @@ pub enum Context<'a> {
 /// Cannot be constructed in user code, but is returned from
 /// [`PluginHandle::find_context`](../struct.PluginHandle.html#method.find_context).
 ///
-/// Can be passed to [`PluginHandle::enter_context`](../struct.PluginHandle.html#method.enter_context) to run code in the context.
+/// Can be passed to [`PluginHandle::with_context`](../struct.PluginHandle.html#method.with_context) to run code in the context.
 #[derive(Copy, Clone)]
-#[must_use = "context handles do nothing on their own, you must call `enter_context` yourself"]
+#[must_use = "context handles do nothing on their own, you must call `with_context` yourself"]
 pub struct ContextHandle<'a> {
     handle: NonNull<hexchat_context>,
     _lifetime: PhantomData<&'a hexchat_context>,

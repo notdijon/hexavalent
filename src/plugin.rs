@@ -1270,7 +1270,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// These include: the currently-focused tab, a specified channel, or the frontmost tab in a server.
     ///
     /// Returns a [`ContextHandle`](context/struct.ContextHandle.html) which can be passed to
-    /// [`PluginHandle::enter_context`](struct.PluginHandle.html#method.enter_context) to enter the context.
+    /// [`PluginHandle::with_context`](struct.PluginHandle.html#method.with_context) to enter the context.
     ///
     /// Analogous to [`hexchat_find_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_find_context).
     ///
@@ -1282,13 +1282,13 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// fn find_context_example<P>(ph: PluginHandle<'_, P>) {
     ///     if let Some(ctxt) = ph.find_context(Context::Focused) {
-    ///         ph.enter_context(ctxt, || ph.print("This tab is focused!\0"));
+    ///         ph.with_context(ctxt, || ph.print("This tab is focused!\0"));
     ///     }
     ///     if let Some(ctxt) = ph.find_context(Context::Channel { servname: "Snoonet\0", channel: "#help\0" }) {
-    ///         ph.enter_context(ctxt, || ph.print("This tab is #help on snoonet!\0"));
+    ///         ph.with_context(ctxt, || ph.print("This tab is #help on snoonet!\0"));
     ///     }
     ///     if let Some(ctxt) = ph.find_context(Context::FrontmostChannelIn { servname: "Snoonet\0" }) {
-    ///         ph.enter_context(ctxt, || ph.print("This tab is frontmost on snoonet!\0"));
+    ///         ph.with_context(ctxt, || ph.print("This tab is frontmost on snoonet!\0"));
     ///     }
     /// }
     /// ```
@@ -1340,13 +1340,13 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///         Some(ctxt) => ctxt,
     ///         None => return Err(()),
     ///     };
-    ///     ph.enter_context(ctxt, || {
+    ///     ph.with_context(ctxt, || {
     ///         ph.print(message);
     ///         Ok(())
     ///     })
     /// }
     /// ```
-    pub fn enter_context<R>(self, context: ContextHandle<'_>, f: impl FnOnce() -> R) -> R {
+    pub fn with_context<R>(self, context: ContextHandle<'_>, f: impl FnOnce() -> R) -> R {
         // Safety: handle is always valid
         let old_context = unsafe { ((*self.handle).hexchat_get_context)(self.handle) };
 
