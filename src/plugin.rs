@@ -1411,6 +1411,16 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Fails if `value` exceeds 511 bytes in length.
     ///
     /// Analogous to [`hexchat_pluginpref_set_str`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_set_str).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn save_str<P>(ph: PluginHandle<'_, P>) -> Result<(), ()> {
+    ///     ph.pluginpref_set_str("myvar1\0", "something important\0")
+    /// }
+    /// ```
     pub fn pluginpref_set_str(self, name: &str, value: &str) -> Result<(), ()> {
         let name = name.into_cstr();
         let value = value.into_cstr();
@@ -1433,6 +1443,17 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Note that int preferences can be successfully loaded as strings.
     ///
     /// Analogous to [`hexchat_pluginpref_get_str`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_get_str).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn load_str<P>(ph: PluginHandle<'_, P>) {
+    ///     let pref = ph.pluginpref_get_str("myvar1\0");
+    ///     assert_eq!(pref.unwrap(), "something important");
+    /// }
+    /// ```
     pub fn pluginpref_get_str(self, name: &str) -> Result<String, ()> {
         self.pluginpref_get_str_with(name, |s| s.map(|s| s.to_owned()))
     }
@@ -1445,6 +1466,18 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// but avoids allocating a `String` to hold the preference value.
     ///
     /// Analogous to [`hexchat_pluginpref_get_str`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_get_str).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn load_str<P>(ph: PluginHandle<'_, P>) {
+    ///     ph.pluginpref_get_str_with("myvar1\0", |pref| {
+    ///         assert_eq!(pref, Ok("something important"));
+    ///     });
+    /// }
+    /// ```
     pub fn pluginpref_get_str_with<R>(
         self,
         name: &str,
@@ -1482,9 +1515,19 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Sets a plugin-specific int preference.
     ///
-    /// Fails if `value` is `-`, as `-1` is reserved.
+    /// `-1` is a reserved value and cannot be used.
     ///
     /// Analogous to [`hexchat_pluginpref_set_int`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_set_int).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn save_int<P>(ph: PluginHandle<'_, P>) -> Result<(), ()> {
+    ///     ph.pluginpref_set_int("answer\0", 42)
+    /// }
+    /// ```
     pub fn pluginpref_set_int(self, name: &str, value: i32) -> Result<(), ()> {
         let name = name.into_cstr();
 
@@ -1497,6 +1540,17 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Gets a plugin-specific int preference.
     ///
     /// Analogous to [`hexchat_pluginpref_get_int`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_get_int).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn load_int<P>(ph: PluginHandle<'_, P>) {
+    ///     let pref = ph.pluginpref_get_int("answer\0");
+    ///     assert_eq!(pref, Ok(42));
+    /// }
+    /// ```
     pub fn pluginpref_get_int(self, name: &str) -> Result<i32, ()> {
         let name = name.into_cstr();
 
@@ -1515,6 +1569,16 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Returns `Ok(())` both when an existing preference is deleted and when no preference with `name` exists.
     ///
     /// Analogous to [`hexchat_pluginpref_delete`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_delete).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn remove_answer<P>(ph: PluginHandle<'_, P>) -> Result<(), ()> {
+    ///     ph.pluginpref_delete("answer\0")
+    /// }
+    /// ```
     pub fn pluginpref_delete(self, name: &str) -> Result<(), ()> {
         let name = name.into_cstr();
 
@@ -1529,6 +1593,29 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Note that the total length of all preference names is limited to about 4095 bytes.
     ///
     /// Analogous to [`hexchat_pluginpref_list`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn print_all_prefs<P>(ph: PluginHandle<'_, P>) {
+    ///     match ph.pluginpref_list() {
+    ///         Err(()) => ph.print("Failed to list plugin preferences!\0"),
+    ///         Ok(prefs) => {
+    ///             ph.print("All plugin preferences:\0");
+    ///             for pref in prefs {
+    ///                 let val = ph.pluginpref_get_str(&pref);
+    ///                 let val = match &val {
+    ///                     Ok(v) => v,
+    ///                     Err(()) => "<not found>",
+    ///                 };
+    ///                 ph.print(&format!("{} = {}\0", pref, val));
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
     pub fn pluginpref_list(self) -> Result<Vec<String>, ()> {
         self.pluginpref_list_with(
             #[inline(always)]
@@ -1544,6 +1631,27 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// but avoids allocating a `Vec` and `String`s to hold each preference name.
     ///
     /// Analogous to [`hexchat_pluginpref_list`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    ///
+    /// fn print_all_prefs<P>(ph: PluginHandle<'_, P>) {
+    ///     ph.pluginpref_list_with(|prefs| match prefs {
+    ///         Err(()) => ph.print("Failed to list plugin preferences!\0"),
+    ///         Ok(prefs) => {
+    ///             ph.print("All plugin preferences:\0");
+    ///             for pref in prefs {
+    ///                 ph.pluginpref_get_str_with(pref, |val| {
+    ///                     let val = val.unwrap_or("<not found>");
+    ///                     ph.print(&format!("{} = {}\0", pref, val));
+    ///                 });
+    ///             }
+    ///         }
+    ///     });
+    /// }
+    /// ```
     pub fn pluginpref_list_with<R>(
         self,
         f: impl FnOnce(Result<&mut dyn Iterator<Item = &str>, ()>) -> R,
