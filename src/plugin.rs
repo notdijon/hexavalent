@@ -478,6 +478,41 @@ impl<'ph, P> PluginHandle<'ph, P> {
         mirc: strip::MircColors,
         attrs: strip::TextAttrs,
     ) -> Result<String, ()> {
+        self.strip_with(str, mirc, attrs, |s| s.map(|s| s.to_owned()))
+    }
+
+    /// Strips mIRC colors and/or text attributes (bold, underline, etc.) from a string.
+    ///
+    /// Behaves the same as [`PluginHandle::strip`](struct.PluginHandle.html#method.strip),
+    /// but avoids allocating a `String` to hold the stripped string.
+    ///
+    /// Analogous to [`hexchat_strip`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_strip).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::strip::{MircColors, TextAttrs};
+    ///
+    /// fn strip_example<P>(ph: PluginHandle<'_, P>) {
+    ///     let orig = "\x0312Blue\x03 \x02Bold!\x02";
+    ///
+    ///     ph.strip_with(orig, MircColors::Remove, TextAttrs::Remove, |strip_all| {
+    ///         assert_eq!(strip_all, Ok("Blue Bold!"));
+    ///     });
+    ///
+    ///     ph.strip_with(orig, MircColors::Remove, TextAttrs::Keep, |strip_colors| {
+    ///         assert_eq!(strip_colors, Ok("Blue \x02Bold!\x02"));
+    ///     });
+    /// }
+    /// ```
+    pub fn strip_with<R>(
+        self,
+        str: &str,
+        mirc: strip::MircColors,
+        attrs: strip::TextAttrs,
+        f: impl FnOnce(Result<&str, ()>) -> R,
+    ) -> R {
         let str = str.into_cstr();
 
         let mirc_flag = match mirc {
@@ -495,19 +530,18 @@ impl<'ph, P> PluginHandle<'ph, P> {
             unsafe { ((*self.handle).hexchat_strip)(self.handle, str.as_ptr(), -1, flags) };
 
         if stripped_ptr.is_null() {
-            return Err(());
+            return f(Err(()));
         }
 
         // Safety: handle is always valid; stripped_ptr was returned from hexchat_strip
         defer! { unsafe { ((*self.handle).hexchat_free)(self.handle, stripped_ptr as *mut _) } };
 
-        // Safety: hexchat_strip returns a valid pointer or null; temporary is immediately copied to an owned string
+        // Safety: hexchat_strip returns a valid pointer or null; temporary does not outlive this function
         let stripped = unsafe { CStr::from_ptr(stripped_ptr) }
             .to_str()
-            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e))
-            .to_owned();
+            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e));
 
-        Ok(stripped)
+        f(Ok(stripped))
     }
 }
 
@@ -1400,6 +1434,22 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// Analogous to [`hexchat_pluginpref_get_str`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_get_str).
     pub fn pluginpref_get_str(self, name: &str) -> Result<String, ()> {
+        self.pluginpref_get_str_with(name, |s| s.map(|s| s.to_owned()))
+    }
+
+    /// Gets a plugin-specific string preference, passing the result to a closure.
+    ///
+    /// Note that int preferences can be successfully loaded as strings.
+    ///
+    /// Behaves the same as [`PluginHandle::pluginpref_get_str`](struct.PluginHandle.html#method.pluginpref_get_str),
+    /// but avoids allocating a `String` to hold the preference value.
+    ///
+    /// Analogous to [`hexchat_pluginpref_get_str`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_get_str).
+    pub fn pluginpref_get_str_with<R>(
+        self,
+        name: &str,
+        f: impl FnOnce(Result<&str, ()>) -> R,
+    ) -> R {
         let name = name.into_cstr();
 
         // Undocumented limit of 512 characters
@@ -1409,22 +1459,25 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
         // Safety: handle is always valid
         // (Un)Safety: no length argument, better hope they never change the 512 max length
-        int_to_result(unsafe {
+        let res = int_to_result(unsafe {
             ((*self.handle).hexchat_pluginpref_get_str)(
                 self.handle,
                 name.as_ptr(),
                 buf.as_mut_ptr(),
             )
-        })?;
+        });
+
+        if let Err(e) = res {
+            return f(Err(e));
+        }
 
         *buf.last_mut().unwrap() = 0;
-        // Safety: buf is definitely null-terminated; temporary is immediately copied to an owned string
+        // Safety: buf is definitely null-terminated; temporary does not outlive buf
         let str = unsafe { CStr::from_ptr(buf.as_ptr()) }
             .to_str()
-            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_pluginpref_get_str`: {}", e))
-            .to_owned();
+            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_pluginpref_get_str`: {}", e));
 
-        Ok(str)
+        f(Ok(str))
     }
 
     /// Sets a plugin-specific int preference.
@@ -1477,15 +1530,37 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// Analogous to [`hexchat_pluginpref_list`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list).
     pub fn pluginpref_list(self) -> Result<Vec<String>, ()> {
+        self.pluginpref_list_with(
+            #[inline(always)]
+            |prefs| prefs.map(|p| p.map(|s| s.to_owned()).collect()),
+        )
+    }
+
+    /// Lists the names of all plugin-specific preferences, passing the result to a closure.
+    ///
+    /// Note that the total length of all preference names is limited to about 4095 bytes.
+    ///
+    /// Behaves the same as [`PluginHandle::pluginpref_list`](struct.PluginHandle.html#method.pluginpref_list),
+    /// but avoids allocating a `Vec` and `String`s to hold each preference name.
+    ///
+    /// Analogous to [`hexchat_pluginpref_list`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list).
+    pub fn pluginpref_list_with<R>(
+        self,
+        f: impl FnOnce(Result<&mut dyn Iterator<Item = &str>, ()>) -> R,
+    ) -> R {
         // Documented limit of 4096 characters
         // https://github.com/hexchat/hexchat/blob/57478b65758e6b697b1d82ce21075e74aa475efc/src/common/plugin.c#L2016
         // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list
         let mut buf = [0; 4096];
 
         // Safety: handle is always valid
-        int_to_result(unsafe {
+        let res = int_to_result(unsafe {
             ((*self.handle).hexchat_pluginpref_list)(self.handle, buf.as_mut_ptr())
-        })?;
+        });
+
+        if let Err(e) = res {
+            return f(Err(e));
+        }
 
         *buf.last_mut().unwrap() = 0;
         // Safety: buf is definitely null-terminated; str does not outlive buf
@@ -1495,10 +1570,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
         let str = str.trim_end_matches(',');
 
-        Ok(match str {
-            "" => Vec::new(),
-            _ => str.split(',').map(|s| s.to_owned()).collect(),
-        })
+        match str {
+            "" => f(Ok(&mut iter::empty())),
+            _ => f(Ok(&mut str.split(','))),
+        }
     }
 }
 
