@@ -207,7 +207,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 ///
 /// General functions allow printing text, running commands, creating events, and other miscellaneous operations.
 impl<'ph, P> PluginHandle<'ph, P> {
-    /// Prints text to the current context. Text may contain mIRC color codes and formatting.
+    /// Prints text to the current [context](struct.PluginHandle.html#impl-3). Text may contain mIRC color codes and formatting.
     ///
     /// Analogous to [`hexchat_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_print).
     ///
@@ -229,7 +229,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         }
     }
 
-    /// Executes a command in the current context as if it were typed into HexChat's input box after a `/`.
+    /// Executes a command in the current [context](struct.PluginHandle.html#impl-3) as if it were typed into HexChat's input box after a `/`.
     ///
     /// Analogous to [`hexchat_command`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_command).
     ///
@@ -251,7 +251,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         }
     }
 
-    /// Emits a print event in the current context.
+    /// Emits a print event in the current [context](struct.PluginHandle.html#impl-3).
     ///
     /// See the [`events::print`](events/print/index.html) submodule for a list of print events.
     ///
@@ -304,12 +304,12 @@ impl<'ph, P> PluginHandle<'ph, P> {
         })
     }
 
-    /// Emits a print event in the current context, specifying its attributes.
+    /// Emits a print event in the current [context](struct.PluginHandle.html#impl-3), specifying its attributes.
     ///
     /// See the [`events::print`](events/print/index.html) submodule for a list of print events.
     ///
     /// Note that this triggers any print hooks registered for the event, so be careful to avoid infinite recursion
-    /// when calling this function from hook callbacks such as [`PluginHandle::hook_print`](struct.PluginHandle.html#method.hook_print).
+    /// when calling this function from hook callbacks such as [`PluginHandle::hook_print_attrs`](struct.PluginHandle.html#method.hook_print_attrs).
     ///
     /// Analogous to [`hexchat_emit_print_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print_attrs).
     ///
@@ -370,7 +370,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         })
     }
 
-    /// Sends channel mode changes to targets in the current context.
+    /// Sends channel mode changes to targets in the current [context](struct.PluginHandle.html#impl-3).
     ///
     /// Analogous to [`hexchat_send_modes`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_send_modes).
     ///
@@ -548,7 +548,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
 /// [Getting Information](https://hexchat.readthedocs.io/en/latest/plugins.html#getting-information)
 ///
-/// Allows you get information about the current context or HexChat's settings.
+/// Allows you get information about the current [context](struct.PluginHandle.html#impl-3) or HexChat's settings.
 impl<'ph, P> PluginHandle<'ph, P> {
     /// Gets settings information from HexChat, as available with `/set`.
     ///
@@ -1349,6 +1349,12 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 /// [Context Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#context-functions)
 ///
 /// Allows you to work with server/channel contexts.
+///
+/// It is not always necessary to change context, as hook callbacks usually execute in a context related to the event.
+/// For example:
+/// - [`PluginHandle::hook_command`](struct.PluginHandle.html#method.hook_command) callbacks run in the context where the command was executed.
+/// - [`PluginHandle::hook_print`](struct.PluginHandle.html#method.hook_print) callbacks run in the context where the print event was emitted.
+/// - [`PluginHandle::hook_server`](struct.PluginHandle.html#method.hook_server) callbacks run in the server (but not channel) context where the server event was received.
 impl<'ph, P> PluginHandle<'ph, P> {
     /// Finds a server/channel context based on various criteria.
     ///
@@ -1370,10 +1376,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     if let Some(ctxt) = ph.find_context(Context::Focused) {
     ///         ph.with_context(ctxt, || ph.print("This tab is focused!\0"));
     ///     }
-    ///     if let Some(ctxt) = ph.find_context(Context::Channel { servname: "Snoonet\0", channel: "#help\0" }) {
-    ///         ph.with_context(ctxt, || ph.print("This tab is #help on snoonet!\0"));
+    ///     if let Some(ctxt) = ph.find_context(Context::Nearby { channel: "#help\0" }) {
+    ///         ph.with_context(ctxt, || ph.print("This tab is #help!\0"));
     ///     }
-    ///     if let Some(ctxt) = ph.find_context(Context::FrontmostChannelIn { servname: "Snoonet\0" }) {
+    ///     if let Some(ctxt) = ph.find_context(Context::Frontmost { servname: "Snoonet\0" }) {
     ///         ph.with_context(ctxt, || ph.print("This tab is frontmost on snoonet!\0"));
     ///     }
     /// }
@@ -1381,11 +1387,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
     pub fn find_context(self, find: Context<'_>) -> Option<ContextHandle<'ph>> {
         let (servname, channel) = match find {
             Context::Focused => (None, None),
-            Context::Channel { servname, channel } => {
+            Context::Nearby { channel } => (None, Some(channel.into_cstr())),
+            Context::Frontmost { servname } => (Some(servname.into_cstr()), None),
+            Context::FullyQualified { servname, channel } => {
                 (Some(servname.into_cstr()), Some(channel.into_cstr()))
             }
-            Context::FrontmostChannelIn { servname } => (Some(servname.into_cstr()), None),
-            Context::InAnyServer { channel } => (None, Some(channel.into_cstr())),
         };
 
         let servname = servname.as_ref().map_or_else(ptr::null, |s| s.as_ptr());
@@ -1403,10 +1409,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// Used with [`PluginHandle::find_context`](struct.PluginHandle.html#method.find_context).
     ///
-    /// Note that this is not necessary for most simple plugins, which listen to events
-    /// and perform actions in the channel each event came from.
-    /// It is only useful if you need to perform an action in a different channel.
-    ///
     /// Analogous to [`hexchat_get_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_context) and
     /// [`hexchat_set_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_set_context).
     ///
@@ -1418,11 +1420,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// fn send_message_to_channel<P>(
     ///     ph: PluginHandle<'_, P>,
-    ///     servname: &str,
     ///     channel: &str,
     ///     message: &str,
     /// ) -> Result<(), ()> {
-    ///     let ctxt = match ph.find_context(Context::Channel { servname, channel }) {
+    ///     let ctxt = match ph.find_context(Context::Nearby { channel }) {
     ///         Some(ctxt) => ctxt,
     ///         None => return Err(()),
     ///     };

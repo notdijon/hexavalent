@@ -13,25 +13,27 @@ use crate::ffi::hexchat_context;
 pub enum Context<'a> {
     /// The currently-focused tab/window.
     Focused,
-    /// The specified channel in the specified server.
-    Channel {
-        /// The server name.
-        servname: &'a str,
-        /// The channel name.
+    /// The specified channel in the current server, or if no matching channel exists, in any server.
+    ///
+    /// This is usually what you want for responding to server events,
+    /// since the context in your hook callback will already be in the correct server.
+    Nearby {
+        /// The channel name, including the leading `#` where present.
         channel: &'a str,
     },
     /// The frontmost channel in the specified server.
-    FrontmostChannelIn {
-        /// The server name.
+    Frontmost {
+        /// The user-friendly server name displayed by HexChat, e.g. `"Snoonet"`, _not_ a server URL.
         servname: &'a str,
     },
-    /// A channel with the specified name in any server.
+    /// The specified channel in the specified server.
     ///
-    /// Use `Context::Channel` instead of this variant if possible,
-    /// as the wrong context may be selected if the same channel name
-    /// is used in multiple servers.
-    InAnyServer {
-        /// The channel name.
+    /// It is generally not necessary to use this variant over `Context::Nearby`,
+    /// unless you need to print messages to a server in response to actions in a different server.
+    FullyQualified {
+        /// The user-friendly server name displayed by HexChat, e.g. `"Snoonet"`, _not_ a server URL.
+        servname: &'a str,
+        /// The channel name, including the leading `#` where present.
         channel: &'a str,
     },
 }
