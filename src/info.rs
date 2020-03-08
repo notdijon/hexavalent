@@ -1,7 +1,5 @@
 //! Types related to context/config info.
 
-use std::os::raw::c_char;
-
 /// The value of a HexChat setting.
 ///
 /// Used with [`PluginHandle::get_pref`](../struct.PluginHandle.html#method.get_pref).
@@ -9,14 +7,7 @@ use std::os::raw::c_char;
 /// Note that this represents a global preference, not a plugin-specific preference.
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
-pub unsafe trait Pref: private::PrefImpl {
-    /// The preference's name.
-    ///
-    /// # Safety
-    ///
-    /// Must point to a valid, null-terminated C-style string.
-    const NAME: *const c_char;
-
+pub trait Pref: private::PrefImpl {
     /// The preference's type.
     ///
     /// Can be `String`, `i32`, or `bool`.
@@ -24,7 +15,16 @@ pub unsafe trait Pref: private::PrefImpl {
 }
 
 pub(crate) mod private {
-    pub trait PrefImpl {}
+    use std::os::raw::c_char;
+
+    pub unsafe trait PrefImpl {
+        /// The preference's name.
+        ///
+        /// # Safety
+        ///
+        /// Must point to a valid, null-terminated C-style string.
+        const NAME: *const c_char;
+    }
 
     pub enum PrefValue {
         String(String),
@@ -73,15 +73,12 @@ macro_rules! pref {
         #[doc = "`"]
         pub struct $struct_name;
 
-        impl crate::info::private::PrefImpl for $struct_name {}
-
-        unsafe impl crate::info::Pref for $struct_name {
-            #[doc = "`"]
-            #[doc = $pref_name]
-            #[doc = "`"]
+        unsafe impl crate::info::private::PrefImpl for $struct_name {
             // Safety: this string is null-terminated and static
             const NAME: *const ::std::os::raw::c_char = concat!($pref_name, "\0").as_ptr().cast();
+        }
 
+        impl crate::info::Pref for $struct_name {
             type Type = $ty;
         }
     };

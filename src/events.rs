@@ -2,7 +2,6 @@
 
 use std::ffi::CStr;
 use std::marker::PhantomData;
-use std::os::raw::c_char;
 
 use time::OffsetDateTime;
 
@@ -39,14 +38,7 @@ impl<'a> EventAttrs<'a> {
 /// See the [`PrintEvent`](trait.PrintEvent.html) and [`ServerEvent`](trait.ServerEvent.html) traits for usage.
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
-pub unsafe trait Event<'a>: private::EventImpl {
-    /// The event's name.
-    ///
-    /// # Safety
-    ///
-    /// Must point to a valid, null-terminated C-style string.
-    const NAME: *const c_char;
-
+pub trait Event<'a>: private::EventImpl {
     /// The arguments associated with this event.
     type Args: AsRef<[&'a str]>;
 
@@ -71,7 +63,16 @@ pub unsafe trait Event<'a>: private::EventImpl {
 }
 
 pub(crate) mod private {
-    pub trait EventImpl {}
+    use std::os::raw::c_char;
+
+    pub unsafe trait EventImpl {
+        /// The event's name.
+        ///
+        /// # Safety
+        ///
+        /// Must point to a valid, null-terminated C-style string.
+        const NAME: *const c_char;
+    }
 }
 
 macro_rules! count {
@@ -118,15 +119,12 @@ macro_rules! event {
             const FIELD_COUNT: usize = count!($($index)* $($eol_index)?);
         }
 
-        impl crate::events::private::EventImpl for $struct_name {}
-
-        unsafe impl<'a> crate::events::Event<'a> for $struct_name {
-            #[doc = "`"]
-            #[doc = $event_name]
-            #[doc = "`"]
+        unsafe impl crate::events::private::EventImpl for $struct_name {
             // Safety: this string is null-terminated and static
             const NAME: *const ::std::os::raw::c_char = concat!($event_name, "\0").as_ptr().cast();
+        }
 
+        impl<'a> crate::events::Event<'a> for $struct_name {
             #[doc = "["]
             $(
                 #[doc = ""]
