@@ -16,6 +16,7 @@ use crate::events::{Event, EventAttrs, PrintEvent, ServerEvent};
 use crate::ffi::{hexchat_event_attrs, hexchat_plugin, int_to_result, word_to_iter, StrExt};
 use crate::gui::FakePluginHandle;
 use crate::hook::{self, HookHandle};
+use crate::info::{FromPrefValue, Pref, PrefValue};
 use crate::mode;
 use crate::state::{catch_and_log_unwind, with_plugin_state};
 use crate::strip;
@@ -549,6 +550,59 @@ impl<'ph, P> PluginHandle<'ph, P> {
 ///
 /// Allows you get information about the current context or HexChat's settings.
 impl<'ph, P> PluginHandle<'ph, P> {
+    /// Gets settings information from HexChat, as available with `/set`.
+    ///
+    /// See the [`info::prefs`](info/prefs/index.html) submodule for a list of preferences.
+    /// See also the [`info::prefs_special`](info/prefs_special/index.html) submodule for a list of special "preferences" that do not show up under `/set`.
+    ///
+    /// Analogous to [`hexchat_get_prefs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_prefs).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::info::prefs::IrcNick1;
+    ///
+    /// fn print_nick_setting<P>(ph: PluginHandle<'_, P>) {
+    ///     match ph.get_pref(IrcNick1) {
+    ///         Ok(nick) => ph.print(&format!("Current nickname setting is: {}\0", nick)),
+    ///         Err(()) => ph.print("Failed to get nickname!\0"),
+    ///     }
+    /// }
+    ///
+    /// ```
+    pub fn get_pref<Pr: Pref>(self, pref: Pr) -> Result<<Pr as Pref>::Type, ()> {
+        let _ = pref;
+
+        let mut string = ptr::null();
+        let mut int = 0;
+
+        // Safety: handle is always valid
+        let result = unsafe {
+            ((*self.handle).hexchat_get_prefs)(self.handle, Pr::NAME, &mut string, &mut int)
+        };
+
+        // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_prefs
+        let value = match result {
+            1 => {
+                assert!(!string.is_null());
+
+                // Safety: hexchat_get_prefs sets a valid string or null, temporary is immediately copied to an owned string
+                let str = unsafe { CStr::from_ptr(string) }
+                    .to_str()
+                    .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_get_prefs`: {}", e))
+                    .to_owned();
+
+                PrefValue::String(str)
+            }
+            2 => PrefValue::Int(int as i32),
+            3 => PrefValue::Bool(int != 0),
+            _ => return Err(()),
+        };
+
+        FromPrefValue::from_pref_value(value)
+    }
+
     /* TODO
         hexchat_get_info,
         hexchat_get_prefs,
@@ -560,8 +614,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
         hexchat_list_time,
         hexchat_list_free,
     */
-    /// todo temp
-    pub fn temp_placeholder_impl_block() {}
 }
 
 /// [Hook Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#hook-functions)

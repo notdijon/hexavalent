@@ -106,6 +106,7 @@ pub mod context;
 pub mod events;
 pub mod gui;
 pub mod hook;
+pub mod info;
 pub mod mode;
 pub mod strip;
 
