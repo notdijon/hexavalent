@@ -125,7 +125,6 @@ macro_rules! event {
         }
 
         impl<'a> crate::events::Event<'a> for $struct_name {
-            #[doc = "["]
             $(
                 #[doc = ""]
                 #[doc = "`"]
@@ -138,8 +137,6 @@ macro_rules! event {
                 #[doc = $eol_name]
                 #[doc = "`, "]
             )?
-            #[doc = ""]
-            #[doc = "]"]
             type Args = [&'a str; Self::FIELD_COUNT];
 
             #[doc(hidden)]
