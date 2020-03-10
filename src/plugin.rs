@@ -479,7 +479,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         mirc: strip::MircColors,
         attrs: strip::TextAttrs,
     ) -> Result<String, ()> {
-        self.strip_with(str, mirc, attrs, |s| s.map(|s| s.to_owned()))
+        self.strip_with(str, mirc, attrs, |s| s.map(ToOwned::to_owned))
     }
 
     /// Strips mIRC colors and/or text attributes (bold, underline, etc.) from a string.
@@ -1517,7 +1517,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// }
     /// ```
     pub fn pluginpref_get_str(self, name: &str) -> Result<String, ()> {
-        self.pluginpref_get_str_with(name, |s| s.map(|s| s.to_owned()))
+        self.pluginpref_get_str_with(name, |pref| pref.map(ToOwned::to_owned))
     }
 
     /// Gets a plugin-specific string preference, passing the result to a closure.
@@ -1681,7 +1681,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     pub fn pluginpref_list(self) -> Result<Vec<String>, ()> {
         self.pluginpref_list_with(
             #[inline(always)]
-            |prefs| prefs.map(|p| p.map(|s| s.to_owned()).collect()),
+            |prefs| prefs.map(|p| p.map(ToOwned::to_owned).collect()),
         )
     }
 
