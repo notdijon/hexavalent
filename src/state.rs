@@ -178,7 +178,11 @@ pub fn with_plugin_state<P: 'static, R>(f: impl FnOnce(&P, PluginHandle<'_, P>) 
     };
 
     #[cfg(debug_assertions)]
-    debug_assert_eq!(global_plugin.thread_id, std::thread::current().id());
+    debug_assert_eq!(
+        global_plugin.thread_id,
+        std::thread::current().id(),
+        "plugin invoked from different thread"
+    );
 
     let plugin = global_plugin
         .plugin
