@@ -26,27 +26,27 @@ pub(crate) mod private {
         const NAME: *const c_char;
     }
 
-    pub enum PrefValue {
-        String(String),
+    pub enum PrefValue<'a> {
+        Str(&'a str),
         Int(i32),
         Bool(bool),
     }
 
     pub trait FromPrefValue: Sized {
-        fn from_pref_value(pref: PrefValue) -> Result<Self, ()>;
+        fn from_pref_value(pref: PrefValue<'_>) -> Result<Self, ()>;
     }
 
     impl FromPrefValue for String {
-        fn from_pref_value(pref: PrefValue) -> Result<Self, ()> {
+        fn from_pref_value(pref: PrefValue<'_>) -> Result<Self, ()> {
             match pref {
-                PrefValue::String(x) => Ok(x),
+                PrefValue::Str(x) => Ok(x.to_owned()),
                 _ => Err(()),
             }
         }
     }
 
     impl FromPrefValue for i32 {
-        fn from_pref_value(pref: PrefValue) -> Result<Self, ()> {
+        fn from_pref_value(pref: PrefValue<'_>) -> Result<Self, ()> {
             match pref {
                 PrefValue::Int(x) => Ok(x),
                 _ => Err(()),
@@ -55,7 +55,7 @@ pub(crate) mod private {
     }
 
     impl FromPrefValue for bool {
-        fn from_pref_value(pref: PrefValue) -> Result<Self, ()> {
+        fn from_pref_value(pref: PrefValue<'_>) -> Result<Self, ()> {
             match pref {
                 PrefValue::Bool(x) => Ok(x),
                 _ => Err(()),

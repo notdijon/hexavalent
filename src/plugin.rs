@@ -572,6 +572,16 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// ```
     pub fn get_pref<Pr: Pref>(self, pref: Pr) -> Result<<Pr as Pref>::Type, ()> {
+        self.get_pref_value_with(pref, |value| value.and_then(FromPrefValue::from_pref_value))
+    }
+
+    fn get_pref_value_with<Pr: Pref, R>(
+        self,
+        pref: Pr,
+        // Note: this must be a fn pointer as this api returns a pointer to memory owned by hexchat,
+        // which could be invalidated by the closure otherwise (e.g. by running a /set command).
+        f: fn(Result<PrefValue<'_>, ()>) -> R,
+    ) -> R {
         let _ = pref;
 
         let mut string = ptr::null();
@@ -587,20 +597,19 @@ impl<'ph, P> PluginHandle<'ph, P> {
             1 => {
                 assert!(!string.is_null());
 
-                // Safety: hexchat_get_prefs sets a valid string or null, temporary is immediately copied to an owned string
+                // Safety: hexchat_get_prefs sets a valid string or null, temporary does not outlive this function
                 let str = unsafe { CStr::from_ptr(string) }
                     .to_str()
-                    .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_get_prefs`: {}", e))
-                    .to_owned();
+                    .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_get_prefs`: {}", e));
 
-                PrefValue::String(str)
+                PrefValue::Str(str)
             }
             2 => PrefValue::Int(int as i32),
             3 => PrefValue::Bool(int != 0),
-            _ => return Err(()),
+            _ => return f(Err(())),
         };
 
-        FromPrefValue::from_pref_value(value)
+        f(Ok(value))
     }
 
     /* TODO
