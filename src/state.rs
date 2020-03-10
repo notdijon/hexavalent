@@ -143,7 +143,7 @@ pub unsafe fn hexchat_plugin_deinit<P: Plugin>(_plugin_handle: *mut hexchat_plug
             assert_eq!(replaced_state, NO_READERS, "deinitialized while running");
             defer! { STATE.store(NO_READERS, Ordering::SeqCst) };
 
-            // Safety: LOCK guarantees unique access to handles
+            // Safety: STATE guarantees unique access to handles
             *PLUGIN.get() = None;
         }
 
