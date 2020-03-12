@@ -1,5 +1,4 @@
 use std::mem::ManuallyDrop;
-use std::ptr;
 
 macro_rules! defer {
     ($action:expr) => {
@@ -19,11 +18,9 @@ impl<F: FnOnce()> RunOnDrop<F> {
 
 impl<F: FnOnce()> Drop for RunOnDrop<F> {
     fn drop(&mut self) {
-        // Safety: the value is being dropped, so it can't be used again
-        unsafe {
-            let f = ManuallyDrop::into_inner(ptr::read(&self.0));
-            f();
-        }
+        // Safety: self is being dropped, so it can't be used again
+        let f = unsafe { ManuallyDrop::take(&mut self.0) };
+        f();
     }
 }
 
