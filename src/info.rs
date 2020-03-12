@@ -9,6 +9,8 @@ pub trait Info: private::InfoImpl {
     /// The info's type.
     ///
     /// Can be `String`, or `Option<String>`.
+    // todo with GATs, it _might_ be nice to have Type/BorrowedType<'a>, so that we can avoid allocation
+    //  (but we'd probably have to make get_info_with unsafe due to invalidation of the string)
     type Type: private::FromInfoValue;
 }
 
@@ -23,6 +25,8 @@ pub trait Pref: private::PrefImpl {
     /// The preference's type.
     ///
     /// Can be `String`, `i32`, or `bool`.
+    // todo with GATs, it _might_ be nice to have Type/BorrowedType<'a>, so that we can avoid allocation
+    //  (but we'd probably have to make get_pref_with unsafe due to invalidation of the string)
     type Type: private::FromPrefValue;
 }
 
