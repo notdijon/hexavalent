@@ -23,18 +23,3 @@ impl<F: FnOnce()> Drop for RunOnDrop<F> {
         f();
     }
 }
-
-#[cfg(test)]
-macro_rules! assert_matches {
-    ( $expected:pat, $input:expr ) => {{
-        match $input {
-            $expected => {}
-            ref not_expected => assert!(
-                false,
-                "{:?} does not match {}",
-                not_expected,
-                stringify!($expected)
-            ),
-        }
-    }};
-}

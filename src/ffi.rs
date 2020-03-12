@@ -123,11 +123,11 @@ mod tests {
     #[test]
     fn intocstr_str() {
         let owner = "hello".into_cstr();
-        assert_matches!(Cow::Owned(_), owner);
+        assert!(matches!(owner, Cow::Owned(_)));
         assert_eq!(owner.as_ref(), cs("hello\0"));
 
         let owner = "hello\0".into_cstr();
-        assert_matches!(Cow::Borrowed(_), owner);
+        assert!(matches!(owner, Cow::Borrowed(_)));
         assert_eq!(owner.as_ref(), cs("hello\0"));
     }
 
