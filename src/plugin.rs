@@ -16,7 +16,7 @@ use crate::events::{Event, EventAttrs, PrintEvent, ServerEvent};
 use crate::ffi::{hexchat_event_attrs, hexchat_plugin, int_to_result, word_to_iter, StrExt};
 use crate::gui::FakePluginHandle;
 use crate::hook::{self, HookHandle};
-use crate::info::{FromPrefValue, Pref, PrefValue};
+use crate::info::{FromInfoValue, FromPrefValue, Info, Pref, PrefValue};
 use crate::mode;
 use crate::state::{catch_and_log_unwind, with_plugin_state};
 use crate::strip;
@@ -550,6 +550,54 @@ impl<'ph, P> PluginHandle<'ph, P> {
 ///
 /// Allows you get information about the current [context](struct.PluginHandle.html#impl-3) or HexChat's settings.
 impl<'ph, P> PluginHandle<'ph, P> {
+    /// Gets information based on the current [context](struct.PluginHandle.html#impl-3).
+    ///
+    /// See the [`info::types`](info/types/index.html) submodule for a list of info types.
+    ///
+    /// Analogous to [`hexchat_get_info`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_info).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::info::types::{AwayReason, Channel};
+    ///
+    /// fn get_channel<P>(ph: PluginHandle<'_, P>) -> String {
+    ///     ph.get_info(Channel)
+    /// }
+    ///
+    /// fn get_away_reason<P>(ph: PluginHandle<'_, P>) -> Option<String> {
+    ///     ph.get_info(AwayReason)
+    /// }
+    /// ```
+    pub fn get_info<I: Info>(self, info: I) -> <I as Info>::Type {
+        self.get_info_with(info, FromInfoValue::from_info_value)
+    }
+
+    fn get_info_with<I: Info, R>(
+        self,
+        info: I,
+        // Note: this must be a fn pointer as this api returns a pointer to memory owned by hexchat,
+        // which could be invalidated by the closure otherwise (e.g. by interacting with hexchat in basically any way).
+        f: fn(Option<&str>) -> R,
+    ) -> R {
+        let _ = info;
+
+        // Safety: handle is always valid
+        let ptr = unsafe { ((*self.handle).hexchat_get_info)(self.handle, I::NAME) };
+
+        if ptr.is_null() {
+            return f(None);
+        }
+
+        // Safety: pointer returned from hexchat_get_info is null or valid; str does not outlive this function
+        let str = unsafe { CStr::from_ptr(ptr) }
+            .to_str()
+            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_get_info`: {}", e));
+
+        f(Some(str))
+    }
+
     /// Gets settings information from HexChat, as available with `/set`.
     ///
     /// See the [`info::prefs`](info/prefs/index.html) submodule for a list of preferences.

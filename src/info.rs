@@ -1,5 +1,17 @@
 //! Types related to context/config info.
 
+/// Info about the current [context](../struct.PluginHandle.html#impl-3).
+///
+/// Used with [`PluginHandle::get_info`](../struct.PluginHandle.html#method.get_info).
+///
+/// This trait is sealed and cannot be implemented outside of `hexavalent`.
+pub trait Info: private::InfoImpl {
+    /// The info's type.
+    ///
+    /// Can be `String`, or `Option<String>`.
+    type Type: private::FromInfoValue;
+}
+
 /// The value of a HexChat setting.
 ///
 /// Used with [`PluginHandle::get_pref`](../struct.PluginHandle.html#method.get_pref).
@@ -16,6 +28,32 @@ pub trait Pref: private::PrefImpl {
 
 pub(crate) mod private {
     use std::os::raw::c_char;
+
+    pub unsafe trait InfoImpl {
+        /// The info's name.
+        ///
+        /// # Safety
+        ///
+        /// Must point to a valid, null-terminated C-style string.
+        const NAME: *const c_char;
+    }
+
+    pub trait FromInfoValue: Sized {
+        fn from_info_value(info: Option<&str>) -> Self;
+    }
+
+    impl FromInfoValue for String {
+        fn from_info_value(info: Option<&str>) -> Self {
+            info.map(ToOwned::to_owned)
+                .unwrap_or_else(|| panic!("Unexpected null info value"))
+        }
+    }
+
+    impl FromInfoValue for Option<String> {
+        fn from_info_value(info: Option<&str>) -> Self {
+            info.map(ToOwned::to_owned)
+        }
+    }
 
     pub unsafe trait PrefImpl {
         /// The preference's name.
@@ -64,7 +102,30 @@ pub(crate) mod private {
     }
 }
 
-pub(crate) use private::{FromPrefValue, PrefValue};
+pub(crate) use private::{FromInfoValue, FromPrefValue, PrefValue};
+
+macro_rules! info {
+    ($struct_name:ident, $info_name:literal, $ty:ty, $description:literal) => {
+        #[doc = "`"]
+        #[doc = $info_name]
+        #[doc = "`"]
+        #[doc = ""]
+        #[doc = $description]
+        pub struct $struct_name;
+
+        unsafe impl crate::info::private::InfoImpl for $struct_name {
+            // Safety: this string is null-terminated and static
+            const NAME: *const ::std::os::raw::c_char = concat!($info_name, "\0").as_ptr().cast();
+        }
+
+        impl crate::info::Info for $struct_name {
+            type Type = $ty;
+        }
+    };
+}
+
+/// Information types.
+pub mod types;
 
 macro_rules! pref {
     ($struct_name:ident, $pref_name:literal, $ty:ty) => {
@@ -84,7 +145,7 @@ macro_rules! pref {
     };
 }
 
-/// Global preferences.
+/// Global preference types.
 pub mod prefs;
 
 /// Special global preferences that do not appear in `/set`.
