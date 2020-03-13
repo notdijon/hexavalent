@@ -652,7 +652,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
                 PrefValue::Str(str)
             }
-            2 => PrefValue::Int(int as i32),
+            2 => PrefValue::Int(int),
             3 => PrefValue::Bool(int != 0),
             _ => return f(Err(())),
         };
@@ -1643,7 +1643,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
         // Safety: handle is always valid
         int_to_result(unsafe {
-            ((*self.handle).hexchat_pluginpref_set_int)(self.handle, name.as_ptr(), value as c_int)
+            ((*self.handle).hexchat_pluginpref_set_int)(self.handle, name.as_ptr(), value)
         })
     }
 
@@ -1670,7 +1670,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
         match value {
             -1 => Err(()),
-            _ => Ok(value as i32),
+            _ => Ok(value),
         }
     }
 
