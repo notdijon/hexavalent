@@ -562,11 +562,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     /// use hexavalent::info::types::{AwayReason, Channel};
     ///
-    /// fn get_channel<P>(ph: PluginHandle<'_, P>) -> String {
+    /// fn current_channel<P>(ph: PluginHandle<'_, P>) -> String {
     ///     ph.get_info(Channel)
     /// }
     ///
-    /// fn get_away_reason<P>(ph: PluginHandle<'_, P>) -> Option<String> {
+    /// fn current_away_reason<P>(ph: PluginHandle<'_, P>) -> Option<String> {
     ///     ph.get_info(AwayReason)
     /// }
     /// ```
