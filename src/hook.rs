@@ -33,7 +33,7 @@ pub enum Priority {
     Highest = HEXCHAT_PRI_HIGHEST as i8,
 }
 
-/// Determines whether the event that triggered a hook callback should be "eaten".
+/// Whether the event that triggered a hook callback should be "eaten".
 ///
 /// Used with hook registration functions such as [`PluginHandle::hook_command`](../struct.PluginHandle.html#method.hook_command).
 #[repr(u8)]
@@ -56,7 +56,7 @@ pub enum Eat {
     All = HEXCHAT_EAT_ALL as u8,
 }
 
-/// Determines whether a timer callback should continue running.
+/// Whether a timer callback should continue running.
 ///
 /// Used with [`PluginHandle::hook_timer`](../struct.PluginHandle.html#method.hook_timer).
 #[repr(u8)]
