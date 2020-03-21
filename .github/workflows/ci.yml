@@ -27,6 +27,17 @@ jobs:
       - run: rustup component add clippy
       - run: RUSTFLAGS="-D warnings" cargo clippy
 
+  doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo install cargo-deadlinks
+      - run: RUSTFLAGS="-D warnings" cargo doc
+      - run: RUSTFLAGS="-D warnings" cargo deadlinks
+
   test:
     runs-on: ubuntu-latest
     steps:
