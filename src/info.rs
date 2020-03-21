@@ -1,6 +1,7 @@
 //! Types related to context/config info.
 
 use std::convert::TryFrom;
+use std::str::Split;
 
 /// Info about the current [context](../struct.PluginHandle.html#impl-3).
 ///
@@ -199,7 +200,7 @@ macro_rules! list {
         $elem_ty:ident {
             $(
                 [ $( $field_key:literal )? $( $custom:ident )?, $field_desc:literal, $( $field_type:ident )? $( |$elem:ident| $extract:expr )? ]
-                $rust_field_name:ident : $rust_field_type:ty
+                $rust_field_name:ident : $rust_field_type:ty => $rust_method_type:ty
             ),* $(,)?
         }
     ) => {
@@ -223,13 +224,20 @@ macro_rules! list {
         #[doc = $elem_desc]
         ///
         /// See the [`List`](../trait.List.html) trait for usage.
-        #[non_exhaustive]
         #[derive(Debug)]
         pub struct $elem_ty {
             $(
-                #[doc = $field_desc]
-                pub $rust_field_name : $rust_field_type
+                $rust_field_name: $rust_field_type
             ),*
+        }
+
+        impl $elem_ty {
+            $(
+                #[doc = $field_desc]
+                pub fn $rust_field_name(&self) -> $rust_method_type {
+                    crate::info::ProjectListElemField::project_list_elem_field(&self.$rust_field_name)
+                }
+            )*
         }
 
         impl crate::info::private::FromListElem for $elem_ty {
@@ -267,6 +275,9 @@ macro_rules! list {
         $elem.$field_type(concat!($field_key, "\0"))
     }
 }
+
+#[derive(Debug)]
+struct SplitByCommas(String);
 
 trait FromListElemField<T> {
     fn from_list_elem_field(field: T) -> Self;
@@ -318,6 +329,40 @@ impl FromListElemField<i32> for u32 {
 impl FromListElemField<i32> for bool {
     fn from_list_elem_field(field: i32) -> Self {
         field != 0
+    }
+}
+
+impl FromListElemField<Option<&str>> for SplitByCommas {
+    fn from_list_elem_field(field: Option<&str>) -> Self {
+        Self(field.map(ToOwned::to_owned).unwrap_or_default())
+    }
+}
+
+trait ProjectListElemField<'a, T> {
+    fn project_list_elem_field(&'a self) -> T;
+}
+
+impl<'a, T: Copy> ProjectListElemField<'a, T> for T {
+    fn project_list_elem_field(&self) -> T {
+        *self
+    }
+}
+
+impl<'a> ProjectListElemField<'a, &'a str> for String {
+    fn project_list_elem_field(&self) -> &str {
+        &self
+    }
+}
+
+impl<'a> ProjectListElemField<'a, Option<&'a str>> for Option<String> {
+    fn project_list_elem_field(&self) -> Option<&str> {
+        self.as_ref().map(|s| s.as_str())
+    }
+}
+
+impl<'a> ProjectListElemField<'a, Split<'a, char>> for SplitByCommas {
+    fn project_list_elem_field(&'a self) -> Split<'a, char> {
+        self.0.split(',')
     }
 }
 

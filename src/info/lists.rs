@@ -10,21 +10,21 @@ list!(
     "List of channels, queries and their servers.",
     "A channel.",
     Channel {
-        ["channel", "Channel or query name.", string] name: String,
-        ["channelkey", "Channel key. (HexChat 2.9.6+)", string] key: Option<String>,
-        ["chanmodes", "Available channel modes e.g. `\"beI,k,l\"`. (HexChat 2.12.2+)", string] modes: String,
-        ["chantypes", "Available channel types e.g. `\"#!&\"`.", string] types: String,
-        ["flags", "Info flags.", int] flags: ChannelFlags,
-        ["id", "Unique server ID.", int] server_id: i32,
-        ["lag", "Lag in milliseconds.", int] lag_ms: i32,
-        ["maxmodes", "Maximum modes per line.", int] max_modes_per_line: u32,
-        ["network", "Name of network.", string] network: String,
-        ["nickprefixes", "Nickname prefixes e.g. `\"@+\"`.", string] nick_prefixes: String,
-        ["nickmodes", "Nickname mode chars e.g. `\"ov\"`.", string] nick_modes: String,
-        ["queue", "Number of bytes in the send-queue.", int] queue: u32,
-        ["server", "Server name to which this channel belongs.", string] servname: String,
-        ["type", "Channel type.", int] ty: ChannelType,
-        ["users", "Number of users in this channel.", int] num_users: u32,
+        ["channel", "Channel or query name.", string] name: String => &str,
+        ["channelkey", "Channel key. (HexChat 2.9.6+)", string] key: Option<String> => Option<&str>,
+        ["chanmodes", "Available channel modes e.g. `\"beI,k,l\"`. (HexChat 2.12.2+)", string] modes: String => &str,
+        ["chantypes", "Available channel types e.g. `\"#!&\"`.", string] types: String => &str,
+        ["flags", "Info flags.", int] flags: ChannelFlags => ChannelFlags,
+        ["id", "Unique server ID.", int] server_id: i32 => i32,
+        ["lag", "Lag in milliseconds.", int] lag_ms: i32 => i32,
+        ["maxmodes", "Maximum modes per line.", int] max_modes_per_line: u32 => u32,
+        ["network", "Name of network.", string] network: String => &str,
+        ["nickprefixes", "Nickname prefixes e.g. `\"@+\"`.", string] nick_prefixes: String => &str,
+        ["nickmodes", "Nickname mode chars e.g. `\"ov\"`.", string] nick_modes: String => &str,
+        ["queue", "Number of bytes in the send-queue.", int] queue: u32 => u32,
+        ["server", "Server name to which this channel belongs.", string] servname: String => &str,
+        ["type", "Channel type.", int] ty: ChannelType => ChannelType,
+        ["users", "Number of users in this channel.", int] num_users: u32 => u32,
     }
 );
 
@@ -117,26 +117,26 @@ list!(
             custom,
             "Socket of the remote user.",
             |elem| SocketAddrV4::new(Ipv4Addr::from(elem.int("address32\0") as u32), elem.int("port\0") as u16)
-        ] socket_addr: SocketAddrV4,
-        ["cps", "Bytes per second (speed).", int] bytes_per_second: u32,
-        ["destfile", "Destination full pathname.", string] dest_file: String,
-        ["file", "Filename.", string] file_name: String,
-        ["nick", "Nickname of person who the file is from/to.", string] nick: String,
+        ] socket_addr: SocketAddrV4 => SocketAddrV4,
+        ["cps", "Bytes per second (speed).", int] bytes_per_second: u32 => u32,
+        ["destfile", "Destination full pathname.", string] dest_file: String => &str,
+        ["file", "Filename.", string] file_name: String => &str,
+        ["nick", "Nickname of person who the file is from/to.", string] nick: String => &str,
         [
             custom,
             "Bytes sent/received.",
             |elem| (elem.int("poshigh\0") as u64) << 32 | (elem.int("pos\0") as u64)
-        ] position: u64,
+        ] position: u64 => u64,
         [
             custom,
             "Point at which this file was resumed.",
             |elem| NonZeroU64::new((elem.int("resumehigh\0") as u64) << 32 | (elem.int("resume\0") as u64))
-        ] resumed_at: Option<NonZeroU64>,
+        ] resumed_at: Option<NonZeroU64> => Option<NonZeroU64>,
         [
             custom,
             "File size in bytes.",
             |elem| (elem.int("sizehigh\0") as u64) << 32 | (elem.int("size\0") as u64)
-        ] size: u64
+        ] size: u64 => u64
     }
 );
 
@@ -146,8 +146,8 @@ list!(
     "List of ignores.",
     "An ignored mask.",
     Ignore {
-        ["mask", "Ignore mask, e.g. `\"*!*@*.aol.com\"`.", string] mask: String,
-        ["flags", "Info flags.", int] flags: IgnoreFlags,
+        ["mask", "Ignore mask, e.g. `\"*!*@*.aol.com\"`.", string] mask: String => &str,
+        ["flags", "Info flags.", int] flags: IgnoreFlags => IgnoreFlags,
     }
 );
 
@@ -187,16 +187,12 @@ list!(
     "List of people on notify in the current server [context](../../struct.PluginHandle.html#impl-3).",
     "A nick on notify.",
     Notify {
-        [
-            custom,
-            "Networks to which this nick applies.",
-            |elem| elem.string("networks\0").map_or_else(Vec::new, |s| s.split(',').map(ToOwned::to_owned).collect())
-        ] networks: Vec<String>,
-        ["nick", "Nickname.", string] nick: String,
-        ["flags", "Info flags.", int] flags: NotifyFlags,
-        ["on", "Time when user came online.", time] online: OffsetDateTime,
-        ["off", "Time when user went offline.", time] offline: OffsetDateTime,
-        ["seen", "Time when user the user was last verified still online.", time] seen: OffsetDateTime,
+        ["networks", "Networks to which this nick applies.", string] networks: super::SplitByCommas => impl Iterator<Item = &str>,
+        ["nick", "Nickname.", string] nick: String => &str,
+        ["flags", "Info flags.", int] flags: NotifyFlags => NotifyFlags,
+        ["on", "Time when user came online.", time] online: OffsetDateTime => OffsetDateTime,
+        ["off", "Time when user went offline.", time] offline: OffsetDateTime => OffsetDateTime,
+        ["seen", "Time when user the user was last verified still online.", time] seen: OffsetDateTime => OffsetDateTime,
     }
 );
 
@@ -222,13 +218,13 @@ list!(
     "List of users in the current [context](../../struct.PluginHandle.html#impl-3).",
     "A user.",
     User {
-        ["account", "Account name. (HexChat 2.9.6+)", string] account: Option<String>,
-        ["away", "Away status.", int] is_away: bool,
-        ["lasttalk", "Last time the user was seen talking.", time] last_talk: OffsetDateTime,
-        ["nick", "Nickname.", string] nick: String,
-        ["host", "Hostname e.g. `\"user@host\"`.", string] host: Option<String>,
-        ["prefix", "Prefix character e.g. `'@'` or `'+'`.", string] prefix: Option<char>,
-        ["realname", "Realname.", string] realname: Option<String>,
-        ["selected", "Selected status in the user list, only works in the focused tab.", int] is_selected: bool,
+        ["account", "Account name. (HexChat 2.9.6+)", string] account: Option<String> => Option<&str>,
+        ["away", "Away status.", int] is_away: bool => bool,
+        ["lasttalk", "Last time the user was seen talking.", time] last_talk: OffsetDateTime => OffsetDateTime,
+        ["nick", "Nickname.", string] nick: String => &str,
+        ["host", "Hostname e.g. `\"user@host\"`.", string] host: Option<String> => Option<&str>,
+        ["prefix", "Prefix character e.g. `'@'` or `'+'`.", string] prefix: Option<char> => Option<char>,
+        ["realname", "Realname.", string] realname: Option<String> => Option<&str>,
+        ["selected", "Selected status in the user list, only works in the focused tab.", int] is_selected: bool => bool,
     }
 );

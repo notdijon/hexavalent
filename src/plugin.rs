@@ -683,17 +683,17 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///         Err(()) => return ph.print("Failed to get channels!\0"),
     ///     };
     ///     for channel in channels {
-    ///         let ctxt = match ph.find_context(Context::FullyQualified { servname: &channel.servname, channel: &channel.name }) {
+    ///         let ctxt = match ph.find_context(Context::FullyQualified { servname: channel.servname(), channel: channel.name() }) {
     ///             Some(ctxt) => ctxt,
     ///             None => {
-    ///                 ph.print(&format!("Failed to find channel {} in server {}, skipping.\0", channel.name, channel.servname));
+    ///                 ph.print(&format!("Failed to find channel {} in server {}, skipping.\0", channel.name(), channel.servname()));
     ///                 continue;
     ///             }
     ///         };
-    ///         ph.print(&format!("Users in {} on {}:\0", channel.name, channel.servname));
+    ///         ph.print(&format!("Users in {} on {}:\0", channel.name(), channel.servname()));
     ///         let users = ph.with_context(ctxt, || ph.get_list(Users).unwrap_or_default());
     ///         for user in users {
-    ///             ph.print(&format!("  {}{}", user.prefix.unwrap_or(' '), user.nick));
+    ///             ph.print(&format!("  {}{}", user.prefix().unwrap_or(' '), user.nick()));
     ///         }
     ///     }
     /// }
@@ -729,17 +729,17 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///             Err(()) => return ph.print("Failed to get channels!\0"),
     ///         };
     ///         for channel in channels {
-    ///             let ctxt = match ph.find_context(Context::FullyQualified { servname: &channel.servname, channel: &channel.name }) {
+    ///             let ctxt = match ph.find_context(Context::FullyQualified { servname: channel.servname(), channel: channel.name() }) {
     ///                 Some(ctxt) => ctxt,
     ///                 None => {
-    ///                     ph.print(&format!("Failed to find channel {} in server {}, skipping.\0", channel.name, channel.servname));
+    ///                     ph.print(&format!("Failed to find channel {} in server {}, skipping.\0", channel.name(), channel.servname()));
     ///                     continue;
     ///                 }
     ///             };
-    ///             ph.print(&format!("Users in {} on {}:\0", channel.name, channel.servname));
+    ///             ph.print(&format!("Users in {} on {}:\0", channel.name(), channel.servname()));
     ///             let users = ph.with_context(ctxt, || ph.get_list(Users).unwrap_or_default());
     ///             for user in users {
-    ///                 ph.print(&format!("  {}{}", user.prefix.unwrap_or(' '), user.nick));
+    ///                 ph.print(&format!("  {}{}", user.prefix().unwrap_or(' '), user.nick()));
     ///             }
     ///         }
     ///     });
