@@ -23,7 +23,7 @@ pub enum Context<'a> {
     },
     /// The frontmost channel in the specified server.
     Frontmost {
-        /// The user-friendly server name displayed by HexChat, e.g. `"Snoonet"`, _not_ a server URL.
+        /// The server name.
         servname: &'a str,
     },
     /// The specified channel in the specified server.
@@ -31,7 +31,7 @@ pub enum Context<'a> {
     /// It is generally not necessary to use this variant over `Context::Nearby`,
     /// unless you need to print messages to a server in response to actions in a different server.
     FullyQualified {
-        /// The user-friendly server name displayed by HexChat, e.g. `"Snoonet"`, _not_ a server URL.
+        /// The server name.
         servname: &'a str,
         /// The channel name, including the leading `#` where present.
         channel: &'a str,
