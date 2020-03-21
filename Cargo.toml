@@ -12,8 +12,9 @@ keywords = ["hexchat", "irc"]
 edition = "2018"
 
 [dependencies]
-libc = { version = "0.2.66", default-features = false }
-time = { version = "0.2.7", default-features = false }
+bitflags = { version = "1.2.1", default-features = false }
+libc = { version = "0.2.67", default-features = false }
+time = { version = "0.2.9", default-features = false }
 
 [profile.release]
 lto = true

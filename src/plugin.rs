@@ -13,10 +13,13 @@ use time::OffsetDateTime;
 
 use crate::context::{Context, ContextHandle};
 use crate::events::{Event, EventAttrs, PrintEvent, ServerEvent};
-use crate::ffi::{hexchat_event_attrs, hexchat_plugin, int_to_result, word_to_iter, StrExt};
+use crate::ffi::{
+    hexchat_event_attrs, hexchat_list, hexchat_plugin, int_to_result, word_to_iter, ListElem,
+    StrExt,
+};
 use crate::gui::FakePluginHandle;
 use crate::hook::{self, HookHandle};
-use crate::info::{FromInfoValue, FromPrefValue, Info, Pref, PrefValue};
+use crate::info::{FromInfoValue, FromListElem, FromPrefValue, Info, List, Pref, PrefValue};
 use crate::mode;
 use crate::state::{catch_and_log_unwind, with_plugin_state};
 use crate::strip;
@@ -660,17 +663,134 @@ impl<'ph, P> PluginHandle<'ph, P> {
         f(Ok(value))
     }
 
-    /* TODO
-        hexchat_get_info,
-        hexchat_get_prefs,
-        hexchat_list_get,
-        hexchat_list_fields,
-        hexchat_list_next,
-        hexchat_list_str,
-        hexchat_list_int,
-        hexchat_list_time,
-        hexchat_list_free,
-    */
+    /// Gets a list of information, possibly specific to the current [context](struct.PluginHandle.html#impl-3).
+    ///
+    /// See the [`info::lists`](info/lists/index.html) submodule for a list of lists.
+    ///
+    /// Analogous to [`hexchat_list_get`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_list_get) and related functions.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::context::Context;
+    /// use hexavalent::info::lists::{Channels, Users};
+    ///
+    /// fn print_all_users_in_all_channels<P>(ph: PluginHandle<'_, P>) {
+    ///     let channels = match ph.get_list(Channels) {
+    ///         Ok(channels) => channels,
+    ///         Err(()) => return ph.print("Failed to get channels!\0"),
+    ///     };
+    ///     for channel in channels {
+    ///         let ctxt = match ph.find_context(Context::FullyQualified { servname: &channel.servname, channel: &channel.name }) {
+    ///             Some(ctxt) => ctxt,
+    ///             None => {
+    ///                 ph.print(&format!("Failed to find channel {} in server {}, skipping.\0", channel.name, channel.servname));
+    ///                 continue;
+    ///             }
+    ///         };
+    ///         ph.print(&format!("Users in {} on {}:\0", channel.name, channel.servname));
+    ///         let users = ph.with_context(ctxt, || ph.get_list(Users).unwrap_or_default());
+    ///         for user in users {
+    ///             ph.print(&format!("  {}{}", user.prefix.unwrap_or(' '), user.nick));
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn get_list<L: List>(self, list: L) -> Result<Vec<<L as List>::Elem>, ()> {
+        self.get_list_with(
+            list,
+            #[inline(always)]
+            |list| list.map(|l| l.collect()),
+        )
+    }
+
+    /// Gets a list of information, possibly specific to the current [context](struct.PluginHandle.html#impl-3).
+    ///
+    /// See the [`info::lists`](info/lists/index.html) submodule for a list of lists.
+    ///
+    /// Behaves the same as [`PluginHandle::get_list`](struct.PluginHandle.html#method.get_list),
+    /// but avoids allocating a `Vec` to hold the list.
+    ///
+    /// Analogous to [`hexchat_list_get`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_list_get) and related functions.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::context::Context;
+    /// use hexavalent::info::lists::{Channels, Users};
+    ///
+    /// fn print_all_users_in_all_channels<P>(ph: PluginHandle<'_, P>) {
+    ///     ph.get_list_with(Channels, |channels| {
+    ///         let channels = match channels {
+    ///             Ok(channels) => channels,
+    ///             Err(()) => return ph.print("Failed to get channels!\0"),
+    ///         };
+    ///         for channel in channels {
+    ///             let ctxt = match ph.find_context(Context::FullyQualified { servname: &channel.servname, channel: &channel.name }) {
+    ///                 Some(ctxt) => ctxt,
+    ///                 None => {
+    ///                     ph.print(&format!("Failed to find channel {} in server {}, skipping.\0", channel.name, channel.servname));
+    ///                     continue;
+    ///                 }
+    ///             };
+    ///             ph.print(&format!("Users in {} on {}:\0", channel.name, channel.servname));
+    ///             let users = ph.with_context(ctxt, || ph.get_list(Users).unwrap_or_default());
+    ///             for user in users {
+    ///                 ph.print(&format!("  {}{}", user.prefix.unwrap_or(' '), user.nick));
+    ///             }
+    ///         }
+    ///     });
+    /// }
+    /// ```
+    pub fn get_list_with<L: List, R>(
+        self,
+        list: L,
+        f: impl FnOnce(Result<&mut dyn Iterator<Item = <L as List>::Elem>, ()>) -> R,
+    ) -> R {
+        let _ = list;
+
+        // Safety: handle is always valid
+        let list_ptr = unsafe { ((*self.handle).hexchat_list_get)(self.handle, L::NAME) };
+
+        if list_ptr.is_null() {
+            return f(Err(()));
+        }
+
+        // Safety: handle is always valid; list_ptr was returned from hexchat_list_get
+        // Safety: ListIter does not outlive this function, so there are no dangling pointers
+        defer! { unsafe { ((*self.handle).hexchat_list_free)(self.handle, list_ptr) } }
+
+        struct ListIter<E: FromListElem> {
+            handle: *mut hexchat_plugin,
+            list: *mut hexchat_list,
+            _elem: PhantomData<E>,
+        }
+
+        impl<E: FromListElem> Iterator for ListIter<E> {
+            type Item = E;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                // Safety: handle is always valid; list is valid
+                // Safety: hexchat_list_next can safely be called multiple times at the end of a list
+                if unsafe { ((*self.handle).hexchat_list_next)(self.handle, self.list) } == 0 {
+                    return None;
+                }
+
+                // Safety: handle/list are valid for the entire lifetime of this iterator, and hexchat_list_next returned true
+                let elem = unsafe { ListElem::new(&self.handle, &self.list) };
+
+                Some(FromListElem::from_list_elem(elem))
+            }
+        }
+
+        f(Ok(&mut ListIter {
+            handle: self.handle,
+            list: list_ptr,
+            _elem: PhantomData,
+        }))
+    }
 }
 
 /// [Hook Functions](https://hexchat.readthedocs.io/en/latest/plugins.html#hook-functions)
