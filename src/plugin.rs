@@ -8,7 +8,6 @@ use std::os::raw::{c_char, c_int, c_void};
 use std::ptr::{self, NonNull};
 use std::time::Duration;
 
-use libc::time_t;
 use time::OffsetDateTime;
 
 use crate::context::{Context, ContextHandle};
@@ -357,7 +356,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
                 ptr::write(
                     &mut (*event_attrs).server_time_utc as *mut _,
-                    attrs.time().timestamp() as time_t,
+                    attrs.time().timestamp(),
                 );
 
                 ((*self.handle).hexchat_emit_print_attrs)(
