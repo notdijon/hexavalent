@@ -10,6 +10,7 @@ use crate::ffi::hexchat_context;
 /// Used with [`PluginHandle::find_context`](../struct.PluginHandle.html#method.find_context).
 ///
 /// Analogous to arguments passed to [`hexchat_find_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_find_context).
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum Context<'a> {
     /// The currently-focused tab/window.

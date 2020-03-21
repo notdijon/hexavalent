@@ -13,56 +13,56 @@ use crate::ffi::{
 /// Used with hook registration functions such as [`PluginHandle::hook_command`](../struct.PluginHandle.html#method.hook_command).
 ///
 /// Unless you need to intercept events in a certain order, use  `Priority::Normal`.
+#[non_exhaustive]
 #[derive(Debug, Copy, Clone)]
-#[repr(i8)]
 pub enum Priority {
     /// Callbacks with the lowest priority run after callbacks with any other priority.
     ///
     /// Analogous to [`HEXCHAT_PRI_LOWEST`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.HEXCHAT_PRI_LOWEST).
-    Lowest = HEXCHAT_PRI_LOWEST as i8,
+    Lowest = HEXCHAT_PRI_LOWEST as isize,
     /// Analogous to [`HEXCHAT_PRI_LOW`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.HEXCHAT_PRI_LOW).
-    Low = HEXCHAT_PRI_LOW as i8,
+    Low = HEXCHAT_PRI_LOW as isize,
     /// Most callbacks should use normal priority.
     ///
     /// Analogous to [`HEXCHAT_PRI_NORM`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.HEXCHAT_PRI_NORM).
-    Normal = HEXCHAT_PRI_NORM as i8,
+    Normal = HEXCHAT_PRI_NORM as isize,
     /// Analogous to [`HEXCHAT_PRI_HIGH`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.HEXCHAT_PRI_HIGH).
-    High = HEXCHAT_PRI_HIGH as i8,
+    High = HEXCHAT_PRI_HIGH as isize,
     /// Callbacks with the highest priority run before callbacks with any other priority.
     ///
     /// Analogous to [`HEXCHAT_PRI_HIGHEST`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.HEXCHAT_PRI_HIGHEST).
-    Highest = HEXCHAT_PRI_HIGHEST as i8,
+    Highest = HEXCHAT_PRI_HIGHEST as isize,
 }
 
 /// Whether the event that triggered a hook callback should be "eaten".
 ///
 /// Used with hook registration functions such as [`PluginHandle::hook_command`](../struct.PluginHandle.html#method.hook_command).
+#[non_exhaustive]
 #[derive(Debug, Copy, Clone)]
-#[repr(u8)]
 pub enum Eat {
     /// Let this event continue uneaten.
     ///
     /// Analogous to [`HEXCHAT_EAT_NONE`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.HEXCHAT_EAT_NONE).
-    None = HEXCHAT_EAT_NONE as u8,
+    None = HEXCHAT_EAT_NONE as isize,
     /// Prevent this event from reaching HexChat.
     ///
     /// Analogous to [`HEXCHAT_EAT_HEXCHAT`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.HEXCHAT_EAT_XCHAT).
-    HexChat = HEXCHAT_EAT_HEXCHAT as u8,
+    HexChat = HEXCHAT_EAT_HEXCHAT as isize,
     /// Prevent this event from reaching other plugin callbacks.
     ///
     /// Analogous to [`HEXCHAT_EAT_PLUGIN`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.HEXCHAT_EAT_PLUGIN).
-    Plugin = HEXCHAT_EAT_PLUGIN as u8,
+    Plugin = HEXCHAT_EAT_PLUGIN as isize,
     /// Prevent this event from reaching HexChat or other plugin callbacks.
     ///
     /// Analogous to [`HEXCHAT_EAT_ALL`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.HEXCHAT_EAT_ALL).
-    All = HEXCHAT_EAT_ALL as u8,
+    All = HEXCHAT_EAT_ALL as isize,
 }
 
 /// Whether a timer callback should continue running.
 ///
 /// Used with [`PluginHandle::hook_timer`](../struct.PluginHandle.html#method.hook_timer).
+#[non_exhaustive]
 #[derive(Debug, Copy, Clone)]
-#[repr(u8)]
 pub enum Timer {
     /// Keep running the timer callback on the specified interval.
     // "return 1 to keep running" https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_timer
@@ -149,5 +149,19 @@ impl HookHandle {
     /// Converts this `HookHandle` back into a native `hexchat_hook`.
     pub(crate) fn into_raw(self) -> NonNull<hexchat_hook> {
         self.handle
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::mem;
+
+    use super::*;
+
+    #[test]
+    fn one_byte_enums() {
+        assert_eq!(mem::size_of::<Priority>(), 1);
+        assert_eq!(mem::size_of::<Eat>(), 1);
+        assert_eq!(mem::size_of::<Timer>(), 1);
     }
 }
