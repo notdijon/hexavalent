@@ -1710,19 +1710,18 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     ///
     /// fn print_all_prefs<P>(ph: PluginHandle<'_, P>) {
-    ///     match ph.pluginpref_list() {
-    ///         Err(()) => ph.print("Failed to list plugin preferences!\0"),
-    ///         Ok(prefs) => {
-    ///             ph.print("All plugin preferences:\0");
-    ///             for pref in prefs {
-    ///                 let val = ph.pluginpref_get_str(&pref);
-    ///                 let val = match &val {
-    ///                     Ok(v) => v,
-    ///                     Err(()) => "<not found>",
-    ///                 };
-    ///                 ph.print(&format!("{} = {}\0", pref, val));
-    ///             }
-    ///         }
+    ///     let prefs = match ph.pluginpref_list() {
+    ///         Ok(prefs) => prefs,
+    ///         Err(()) => return ph.print("Failed to list plugin preferences!\0"),
+    ///     };
+    ///     ph.print("All plugin preferences:\0");
+    ///     for pref in prefs {
+    ///         let val = ph.pluginpref_get_str(&pref);
+    ///         let val = match &val {
+    ///             Ok(v) => v,
+    ///             Err(()) => "<not found>",
+    ///         };
+    ///         ph.print(&format!("{} = {}\0", pref, val));
     ///     }
     /// }
     /// ```
@@ -1748,16 +1747,17 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     ///
     /// fn print_all_prefs<P>(ph: PluginHandle<'_, P>) {
-    ///     ph.pluginpref_list_with(|prefs| match prefs {
-    ///         Err(()) => ph.print("Failed to list plugin preferences!\0"),
-    ///         Ok(prefs) => {
-    ///             ph.print("All plugin preferences:\0");
-    ///             for pref in prefs {
-    ///                 ph.pluginpref_get_str_with(pref, |val| {
-    ///                     let val = val.unwrap_or("<not found>");
-    ///                     ph.print(&format!("{} = {}\0", pref, val));
-    ///                 });
-    ///             }
+    ///     ph.pluginpref_list_with(|prefs| {
+    ///         let prefs = match prefs {
+    ///             Ok(prefs) => prefs,
+    ///             Err(()) => return ph.print("Failed to list plugin preferences!\0"),
+    ///         };
+    ///         ph.print("All plugin preferences:\0");
+    ///         for pref in prefs {
+    ///             ph.pluginpref_get_str_with(pref, |val| {
+    ///                 let val = val.unwrap_or("<not found>");
+    ///                 ph.print(&format!("{} = {}\0", pref, val));
+    ///             });
     ///         }
     ///     });
     /// }
