@@ -177,6 +177,7 @@ pub trait Plugin: Default + 'static {
 /// ph.print("hel\0lo");
 /// # }
 /// ```
+#[derive(Debug)]
 pub struct PluginHandle<'ph, P> {
     /// Always points to a valid instance of `hexchat_plugin`.
     handle: *mut hexchat_plugin,

@@ -85,6 +85,7 @@ pub(crate) mod private {
         const NAME: *const c_char;
     }
 
+    #[derive(Debug)]
     pub enum PrefValue<'a> {
         Str(&'a str),
         Int(i32),
@@ -145,6 +146,7 @@ macro_rules! info {
         #[doc = "`"]
         #[doc = ""]
         #[doc = $description]
+        #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
         unsafe impl crate::info::private::InfoImpl for $struct_name {
@@ -166,6 +168,7 @@ macro_rules! pref {
         #[doc = "`"]
         #[doc = $pref_name]
         #[doc = "`"]
+        #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
         unsafe impl crate::info::private::PrefImpl for $struct_name {
@@ -205,6 +208,7 @@ macro_rules! list {
         #[doc = "`"]
         #[doc = ""]
         #[doc = $description]
+        #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
         unsafe impl crate::info::private::ListImpl for $struct_name {
@@ -220,6 +224,7 @@ macro_rules! list {
         ///
         /// See the [`List`](../trait.List.html) trait for usage.
         #[non_exhaustive]
+        #[derive(Debug)]
         pub struct $elem_ty {
             $(
                 #[doc = $field_desc]

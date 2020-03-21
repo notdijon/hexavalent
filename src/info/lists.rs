@@ -80,6 +80,7 @@ impl super::FromListElemField<i32> for ChannelFlags {
 ///
 /// Part of [`Channel`](struct.Channel.html).
 #[non_exhaustive]
+#[derive(Debug, Copy, Clone)]
 pub enum ChannelType {
     /// The toplevel server "channel".
     Server = 1,

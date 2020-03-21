@@ -12,7 +12,7 @@ use time::OffsetDateTime;
 /// and [`PluginHandle::hook_server_attrs`](../struct.PluginHandle.html#method.hook_server_attrs).
 ///
 /// Analogous to [`hexchat_event_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print_attrs).
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct EventAttrs<'a> {
     time: OffsetDateTime,
     _lifetime: PhantomData<&'a ()>,
@@ -113,6 +113,7 @@ macro_rules! event {
             #[doc = "`, "]
         )?
         #[doc = "]."]
+        #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
         impl $struct_name {

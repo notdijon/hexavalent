@@ -11,6 +11,7 @@ use std::ptr::NonNull;
 /// Can be passed to [`PluginHandle::plugingui_remove`](../struct.PluginHandle.html#method.plugingui_remove)
 /// to remove the fake plugin.
 #[must_use = "fake plugins are not removed automatically, you must call `plugingui_remove` yourself"]
+#[derive(Debug)]
 pub struct FakePluginHandle {
     /// Always holds a valid pointer returned by `hexchat_plugingui_add`
     handle: NonNull<c_void>,

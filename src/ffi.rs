@@ -5,6 +5,7 @@ use std::os::raw::{c_char, c_int};
 
 use time::OffsetDateTime;
 
+#[allow(missing_debug_implementations, missing_docs)]
 mod bindings;
 
 // constants https://hexchat.readthedocs.io/en/latest/plugins.html#types-and-constants
@@ -112,6 +113,7 @@ pub unsafe fn word_to_iter<'a>(word: &'a *mut *mut c_char) -> impl Iterator<Item
     }
 }
 
+#[derive(Debug)]
 pub struct ListElem<'a> {
     /// Always points to a valid instance of `hexchat_plugin`.
     handle: *mut hexchat_plugin,

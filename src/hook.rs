@@ -13,6 +13,7 @@ use crate::ffi::{
 /// Used with hook registration functions such as [`PluginHandle::hook_command`](../struct.PluginHandle.html#method.hook_command).
 ///
 /// Unless you need to intercept events in a certain order, use  `Priority::Normal`.
+#[derive(Debug, Copy, Clone)]
 #[repr(i8)]
 pub enum Priority {
     /// Callbacks with the lowest priority run after callbacks with any other priority.
@@ -36,6 +37,7 @@ pub enum Priority {
 /// Whether the event that triggered a hook callback should be "eaten".
 ///
 /// Used with hook registration functions such as [`PluginHandle::hook_command`](../struct.PluginHandle.html#method.hook_command).
+#[derive(Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum Eat {
     /// Let this event continue uneaten.
@@ -59,6 +61,7 @@ pub enum Eat {
 /// Whether a timer callback should continue running.
 ///
 /// Used with [`PluginHandle::hook_timer`](../struct.PluginHandle.html#method.hook_timer).
+#[derive(Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum Timer {
     /// Keep running the timer callback on the specified interval.
@@ -123,6 +126,7 @@ pub enum Timer {
 ///     }
 /// }
 /// ```
+#[derive(Debug)]
 pub struct HookHandle {
     /// Always points to a valid instance of `hexchat_hook`
     handle: NonNull<hexchat_hook>,

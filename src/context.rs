@@ -10,6 +10,7 @@ use crate::ffi::hexchat_context;
 /// Used with [`PluginHandle::find_context`](../struct.PluginHandle.html#method.find_context).
 ///
 /// Analogous to arguments passed to [`hexchat_find_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_find_context).
+#[derive(Debug)]
 pub enum Context<'a> {
     /// The currently-focused tab/window.
     Focused,
@@ -44,7 +45,7 @@ pub enum Context<'a> {
 /// [`PluginHandle::find_context`](../struct.PluginHandle.html#method.find_context).
 ///
 /// Can be passed to [`PluginHandle::with_context`](../struct.PluginHandle.html#method.with_context) to run code in the context.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 #[must_use = "context handles do nothing on their own, you must call `with_context` yourself"]
 pub struct ContextHandle<'a> {
     handle: NonNull<hexchat_context>,
