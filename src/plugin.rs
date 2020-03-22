@@ -331,6 +331,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::event::print::ChannelMessage;
     /// use time::OffsetDateTime;
     ///
+    /// # #[cfg(not(feature = "__unstable_ircv3_line_in_event_attrs"))]
     /// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
     ///     let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(86400 * 365 * 10));
     ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])

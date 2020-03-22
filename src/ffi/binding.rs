@@ -46,6 +46,7 @@ pub struct hexchat_event_attrs {
     pub ircv3_line: *const ::std::os::raw::c_char,
 }
 #[test]
+#[cfg(not(feature = "__unstable_ircv3_line_in_event_attrs"))]
 fn bindgen_test_layout_hexchat_event_attrs() {
     assert_eq!(
         ::std::mem::size_of::<hexchat_event_attrs>(),
