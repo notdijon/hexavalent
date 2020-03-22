@@ -1,8 +1,8 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 
-use hexavalent::events::print::ChannelMessage;
-use hexavalent::events::Event;
+use hexavalent::event::print::ChannelMessage;
+use hexavalent::event::Event;
 use hexavalent::hook::{Eat, Priority};
 use hexavalent::{export_plugin, Plugin, PluginHandle};
 

@@ -1,4 +1,4 @@
-//! Types related to server/channel contexts.
+//! Server/channel contexts.
 
 use std::marker::PhantomData;
 use std::ptr::NonNull;

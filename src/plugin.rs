@@ -11,18 +11,24 @@ use std::time::Duration;
 use time::OffsetDateTime;
 
 use crate::context::{Context, ContextHandle};
-use crate::events::{Event, EventAttrs, PrintEvent, ServerEvent};
+use crate::event::print::PrintEvent;
+use crate::event::server::ServerEvent;
+use crate::event::{Event, EventAttrs};
 use crate::ffi::{
     hexchat_event_attrs, hexchat_list, hexchat_plugin, int_to_result, word_to_iter, ListElem,
     StrExt,
 };
 use crate::gui::FakePluginHandle;
-use crate::hook::{self, HookHandle};
-use crate::info::private::{FromInfoValue, FromListElem, FromPrefValue, PrefValue};
-use crate::info::{Info, List, Pref};
-use crate::mode;
+use crate::hook::{Eat, HookHandle, Priority, Timer};
+use crate::info::private::FromInfoValue;
+use crate::info::Info;
+use crate::list::private::FromListElem;
+use crate::list::List;
+use crate::mode::Sign;
+use crate::pref::private::{FromPrefValue, PrefValue};
+use crate::pref::Pref;
 use crate::state::{catch_and_log_unwind, with_plugin_state};
-use crate::strip;
+use crate::strip::{MircColors, TextAttrs};
 
 /// Must be implemented by all HexChat plugins.
 ///
@@ -32,8 +38,8 @@ use crate::strip;
 /// use std::cell::Cell;
 /// use std::time::SystemTime;
 /// use hexavalent::{Plugin, PluginHandle};
-/// use hexavalent::events::{Event, EventAttrs, PrintEvent};
-/// use hexavalent::events::print::ChannelMessage;
+/// use hexavalent::event::{Event, EventAttrs};
+/// use hexavalent::event::print::ChannelMessage;
 /// use hexavalent::hook::{Eat, Priority};
 ///
 /// struct StatsPlugin {
@@ -257,7 +263,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Emits a print event in the current [context](struct.PluginHandle.html#impl-3).
     ///
-    /// See the [`events::print`](events/print/index.html) submodule for a list of print events.
+    /// See the [`event::print`](event/print/index.html) submodule for a list of print events.
     ///
     /// Note that this triggers any print hooks registered for the event, so be careful to avoid infinite recursion
     /// when calling this function from hook callbacks such as [`PluginHandle::hook_print`](struct.PluginHandle.html#method.hook_print).
@@ -268,7 +274,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::events::print::ChannelMessage;
+    /// use hexavalent::event::print::ChannelMessage;
     ///
     /// fn print_fake_message<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
     ///     ph.emit_print(ChannelMessage, [user, text, "@\0", "$\0"])
@@ -310,7 +316,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Emits a print event in the current [context](struct.PluginHandle.html#impl-3), specifying its attributes.
     ///
-    /// See the [`events::print`](events/print/index.html) submodule for a list of print events.
+    /// See the [`event::print`](event/print/index.html) submodule for a list of print events.
     ///
     /// Note that this triggers any print hooks registered for the event, so be careful to avoid infinite recursion
     /// when calling this function from hook callbacks such as [`PluginHandle::hook_print_attrs`](struct.PluginHandle.html#method.hook_print_attrs).
@@ -321,8 +327,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::events::EventAttrs;
-    /// use hexavalent::events::print::ChannelMessage;
+    /// use hexavalent::event::EventAttrs;
+    /// use hexavalent::event::print::ChannelMessage;
     /// use time::OffsetDateTime;
     ///
     /// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
@@ -402,7 +408,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     ph.send_modes(&[user], Sign::Remove, b'b');
     /// }
     /// ```
-    pub fn send_modes(self, targets: &[impl AsRef<str>], sign: mode::Sign, mode_char: u8) {
+    pub fn send_modes(self, targets: &[impl AsRef<str>], sign: Sign, mode_char: u8) {
         let targets: Vec<_> = targets.iter().map(|t| t.as_ref().into_cstr()).collect();
         let mut targets: Vec<*const c_char> = targets.iter().map(|t| t.as_ptr()).collect();
         let ntargets = targets
@@ -411,8 +417,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
             .unwrap_or_else(|e| panic!("Too many send_modes targets: {}", e));
 
         let sign = match sign {
-            mode::Sign::Add => b'+',
-            mode::Sign::Remove => b'-',
+            Sign::Add => b'+',
+            Sign::Remove => b'-',
         } as c_char;
 
         let mode = mode_char as c_char;
@@ -485,12 +491,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     assert_eq!(strip_colors.unwrap(), "Blue \x02Bold!\x02");
     /// }
     /// ```
-    pub fn strip(
-        self,
-        str: &str,
-        mirc: strip::MircColors,
-        attrs: strip::TextAttrs,
-    ) -> Result<String, ()> {
+    pub fn strip(self, str: &str, mirc: MircColors, attrs: TextAttrs) -> Result<String, ()> {
         self.strip_with(str, mirc, attrs, |s| s.map(ToOwned::to_owned))
     }
 
@@ -522,19 +523,19 @@ impl<'ph, P> PluginHandle<'ph, P> {
     pub fn strip_with<R>(
         self,
         str: &str,
-        mirc: strip::MircColors,
-        attrs: strip::TextAttrs,
+        mirc: MircColors,
+        attrs: TextAttrs,
         f: impl FnOnce(Result<&str, ()>) -> R,
     ) -> R {
         let str = str.into_cstr();
 
         let mirc_flag = match mirc {
-            strip::MircColors::Keep => 0,
-            strip::MircColors::Remove => 1,
+            MircColors::Keep => 0,
+            MircColors::Remove => 1,
         };
         let attrs_flag = match attrs {
-            strip::TextAttrs::Keep => 0,
-            strip::TextAttrs::Remove => 1,
+            TextAttrs::Keep => 0,
+            TextAttrs::Remove => 1,
         } << 1;
         let flags = mirc_flag | attrs_flag;
 
@@ -564,7 +565,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 impl<'ph, P> PluginHandle<'ph, P> {
     /// Gets information based on the current [context](struct.PluginHandle.html#impl-3).
     ///
-    /// See the [`info::types`](info/types/index.html) submodule for a list of info types.
+    /// See the [`info`](info/index.html) submodule for a list of info types.
     ///
     /// Analogous to [`hexchat_get_info`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_info).
     ///
@@ -572,7 +573,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::info::types::{AwayReason, Channel};
+    /// use hexavalent::info::{AwayReason, Channel};
     ///
     /// fn current_channel<P>(ph: PluginHandle<'_, P>) -> String {
     ///     ph.get_info(Channel)
@@ -612,8 +613,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Gets settings information from HexChat, as available with `/set`.
     ///
-    /// See the [`info::prefs`](info/prefs/index.html) submodule for a list of preferences.
-    /// See also the [`info::prefs_special`](info/prefs_special/index.html) submodule for a list of special "preferences" that do not show up under `/set`.
+    /// See the [`pref`](pref/index.html) submodule for a list of preferences.
+    /// See also the [`pref::special`](pref/special/index.html) submodule for a list of special "preferences" that do not show up under `/set`.
     ///
     /// Analogous to [`hexchat_get_prefs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_prefs).
     ///
@@ -621,7 +622,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::info::prefs::IrcNick1;
+    /// use hexavalent::pref::IrcNick1;
     ///
     /// fn print_nick_setting<P>(ph: PluginHandle<'_, P>) {
     ///     match ph.get_pref(IrcNick1) {
@@ -674,7 +675,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Gets a list of information, possibly specific to the current [context](struct.PluginHandle.html#impl-3).
     ///
-    /// See the [`info::lists`](info/lists/index.html) submodule for a list of lists.
+    /// See the [`list`](list/index.html) submodule for a list of lists.
     ///
     /// Analogous to [`hexchat_list_get`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_list_get) and related functions.
     ///
@@ -683,7 +684,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// ```rust
     /// use hexavalent::PluginHandle;
     /// use hexavalent::context::Context;
-    /// use hexavalent::info::lists::{Channels, Users};
+    /// use hexavalent::list::{Channels, Users};
     ///
     /// fn print_all_users_in_all_channels<P>(ph: PluginHandle<'_, P>) {
     ///     let channels = match ph.get_list(Channels) {
@@ -716,7 +717,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Gets a list of information, possibly specific to the current [context](struct.PluginHandle.html#impl-3).
     ///
-    /// See the [`info::lists`](info/lists/index.html) submodule for a list of lists.
+    /// See the [`list`](list/index.html) submodule for a list of lists.
     ///
     /// Behaves the same as [`PluginHandle::get_list`](struct.PluginHandle.html#method.get_list),
     /// but avoids allocating a `Vec` to hold the list.
@@ -728,7 +729,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// ```rust
     /// use hexavalent::PluginHandle;
     /// use hexavalent::context::Context;
-    /// use hexavalent::info::lists::{Channels, Users};
+    /// use hexavalent::list::{Channels, Users};
     ///
     /// fn print_all_users_in_all_channels<P>(ph: PluginHandle<'_, P>) {
     ///     ph.get_list_with(Channels, |channels| {
@@ -945,8 +946,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
         self,
         name: &str,
         help_text: &str,
-        priority: hook::Priority,
-        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> hook::Eat,
+        priority: Priority,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> Eat,
     ) -> HookHandle {
         extern "C" fn hook_command_callback<P: 'static>(
             word: *mut *mut c_char,
@@ -955,7 +956,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
         ) -> c_int {
             catch_and_log_unwind("hook_command_callback", || {
                 // Safety: this is exactly the type we pass into user_data below
-                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> hook::Eat =
+                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> Eat =
                     unsafe { mem::transmute(user_data) };
 
                 // Safety: `word` is a valid word pointer for this entire callback
@@ -971,7 +972,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
                 with_plugin_state(|plugin, ph| callback(plugin, ph, &words))
             })
-            .unwrap_or(hook::Eat::None) as c_int
+            .unwrap_or(Eat::None) as c_int
         }
 
         let name = name.into_cstr();
@@ -998,8 +999,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
     /// Registers a print event hook with HexChat.
     ///
-    /// See the [`events::print`](events/print/index.html) submodule for a list of print events.
-    /// See also the [`events::print_special`](events/print_special/index.html) submodule for a list of special hook-only print events.
+    /// See the [`event::print`](event/print/index.html) submodule for a list of print events.
+    /// See also the [`event::print::special`](event/print/special/index.html) submodule for a list of special hook-only print events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
@@ -1018,8 +1019,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::events::Event;
-    /// use hexavalent::events::print::YouPartWithReason;
+    /// use hexavalent::event::Event;
+    /// use hexavalent::event::print::YouPartWithReason;
     /// use hexavalent::hook::{Eat, Priority};
     ///
     /// struct MyPlugin;
@@ -1041,12 +1042,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     pub fn hook_print<E: PrintEvent>(
         self,
         event: E,
-        priority: hook::Priority,
-        callback: fn(
-            plugin: &P,
-            ph: PluginHandle<'_, P>,
-            args: <E as Event<'_>>::Args,
-        ) -> hook::Eat,
+        priority: Priority,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: <E as Event<'_>>::Args) -> Eat,
     ) -> HookHandle {
         extern "C" fn hook_print_callback<P: 'static, E: PrintEvent>(
             word: *mut *mut c_char,
@@ -1058,7 +1055,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                     plugin: &P,
                     ph: PluginHandle<'_, P>,
                     args: <E as Event<'_>>::Args,
-                ) -> hook::Eat = unsafe { mem::transmute(user_data) };
+                ) -> Eat = unsafe { mem::transmute(user_data) };
 
                 // Safety: `word` is a valid word pointer for this entire callback
                 let word = unsafe { word_to_iter(&word) };
@@ -1066,7 +1063,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
                 with_plugin_state(|plugin, ph| callback(plugin, ph, args))
             })
-            .unwrap_or(hook::Eat::None) as c_int
+            .unwrap_or(Eat::None) as c_int
         }
 
         let _ = event;
@@ -1091,8 +1088,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
     /// Registers a print event hook with HexChat, capturing the event's attributes.
     ///
-    /// See the [`events::print`](events/print/index.html) submodule for a list of print events.
-    /// See also the [`events::print_special`](events/print_special/index.html) submodule for a list of special hook-only print events.
+    /// See the [`event::print`](event/print/index.html) submodule for a list of print events.
+    /// See also the [`event::print::special`](event/print/special/index.html) submodule for a list of special hook-only print events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
@@ -1111,8 +1108,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::events::{Event, EventAttrs};
-    /// use hexavalent::events::print::YouPartWithReason;
+    /// use hexavalent::event::{Event, EventAttrs};
+    /// use hexavalent::event::print::YouPartWithReason;
     /// use hexavalent::hook::{Eat, Priority};
     ///
     /// struct MyPlugin;
@@ -1135,13 +1132,13 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     pub fn hook_print_attrs<E: PrintEvent>(
         self,
         event: E,
-        priority: hook::Priority,
+        priority: Priority,
         callback: fn(
             plugin: &P,
             ph: PluginHandle<'_, P>,
             attrs: EventAttrs<'_>,
             args: <E as Event<'_>>::Args,
-        ) -> hook::Eat,
+        ) -> Eat,
     ) -> HookHandle {
         extern "C" fn hook_print_attrs_callback<P: 'static, E: PrintEvent>(
             word: *mut *mut c_char,
@@ -1155,7 +1152,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                     ph: PluginHandle<'_, P>,
                     attrs: EventAttrs<'_>,
                     args: <E as Event<'_>>::Args,
-                ) -> hook::Eat = unsafe { mem::transmute(user_data) };
+                ) -> Eat = unsafe { mem::transmute(user_data) };
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
                 let timestamp = unsafe { (*attrs).server_time_utc };
@@ -1178,7 +1175,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
                 with_plugin_state(|plugin, ph| callback(plugin, ph, attrs, args))
             })
-            .unwrap_or(hook::Eat::None) as c_int
+            .unwrap_or(Eat::None) as c_int
         }
 
         let _ = event;
@@ -1203,8 +1200,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
     /// Registers a server event hook with HexChat.
     ///
-    /// See the [`events::server`](events/server/index.html) submodule for a list of server events.
-    /// See also the [`events::server_special`](events/server_special/index.html) submodule for a list of special server events.
+    /// See the [`event::server`](event/server/index.html) submodule for a list of server events.
+    /// See also the [`event::server::special`](event/server/special/index.html) submodule for a list of special server events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
@@ -1223,8 +1220,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::events::{Event, ServerEvent};
-    /// use hexavalent::events::server::Part;
+    /// use hexavalent::event::Event;
+    /// use hexavalent::event::server::Part;
     /// use hexavalent::hook::{Eat, Priority};
     ///
     /// struct MyPlugin;
@@ -1246,12 +1243,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     pub fn hook_server<E: ServerEvent>(
         self,
         event: E,
-        priority: hook::Priority,
-        callback: fn(
-            plugin: &P,
-            ph: PluginHandle<'_, P>,
-            args: <E as Event<'_>>::Args,
-        ) -> hook::Eat,
+        priority: Priority,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: <E as Event<'_>>::Args) -> Eat,
     ) -> HookHandle {
         extern "C" fn hook_server_callback<P: 'static, E: ServerEvent>(
             word: *mut *mut c_char,
@@ -1264,7 +1257,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                     plugin: &P,
                     ph: PluginHandle<'_, P>,
                     args: <E as Event<'_>>::Args,
-                ) -> hook::Eat = unsafe { mem::transmute(user_data) };
+                ) -> Eat = unsafe { mem::transmute(user_data) };
 
                 // Safety: `word` is a valid word pointer for this entire callback
                 let word = unsafe { word_to_iter(&word) };
@@ -1274,7 +1267,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
                 with_plugin_state(|plugin, ph| callback(plugin, ph, args))
             })
-            .unwrap_or(hook::Eat::None) as c_int
+            .unwrap_or(Eat::None) as c_int
         }
 
         let _ = event;
@@ -1299,8 +1292,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
     /// Registers a server event hook with HexChat, capturing the event's attributes.
     ///
-    /// See the [`events::server`](events/server/index.html) submodule for a list of server events.
-    /// See also the [`events::server_special`](events/server_special/index.html) submodule for a list of special server events.
+    /// See the [`event::server`](event/server/index.html) submodule for a list of server events.
+    /// See also the [`event::server::special`](event/server/special/index.html) submodule for a list of special server events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
@@ -1319,8 +1312,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::events::{Event, EventAttrs, ServerEvent};
-    /// use hexavalent::events::server::Part;
+    /// use hexavalent::event::{Event, EventAttrs};
+    /// use hexavalent::event::server::Part;
     /// use hexavalent::hook::{Eat, Priority};
     ///
     /// struct MyPlugin;
@@ -1343,13 +1336,13 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     pub fn hook_server_attrs<E: ServerEvent>(
         self,
         event: E,
-        priority: hook::Priority,
+        priority: Priority,
         callback: fn(
             plugin: &P,
             ph: PluginHandle<'_, P>,
             attrs: EventAttrs<'_>,
             args: <E as Event<'_>>::Args,
-        ) -> hook::Eat,
+        ) -> Eat,
     ) -> HookHandle {
         extern "C" fn hook_server_attrs_callback<P: 'static, E: ServerEvent>(
             word: *mut *mut c_char,
@@ -1364,7 +1357,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                     ph: PluginHandle<'_, P>,
                     attrs: EventAttrs<'_>,
                     args: <E as Event<'_>>::Args,
-                ) -> hook::Eat = unsafe { mem::transmute(user_data) };
+                ) -> Eat = unsafe { mem::transmute(user_data) };
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
                 let timestamp = unsafe { (*attrs).server_time_utc };
@@ -1389,7 +1382,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
                 with_plugin_state(|plugin, ph| callback(plugin, ph, attrs, args))
             })
-            .unwrap_or(hook::Eat::None) as c_int
+            .unwrap_or(Eat::None) as c_int
         }
 
         let _ = event;
@@ -1474,17 +1467,17 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     pub fn hook_timer(
         self,
         timeout: Duration,
-        callback: fn(plugin: &P, ph: PluginHandle<'_, P>) -> hook::Timer,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>) -> Timer,
     ) -> HookHandle {
         extern "C" fn hook_timer_callback<P: 'static>(user_data: *mut c_void) -> c_int {
             catch_and_log_unwind("hook_timer_callback", || {
                 // Safety: this is exactly the type we pass into user_data below
-                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>) -> hook::Timer =
+                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>) -> Timer =
                     unsafe { mem::transmute(user_data) };
 
                 with_plugin_state(|plugin, ph| callback(plugin, ph))
             })
-            .unwrap_or(hook::Timer::Stop) as c_int
+            .unwrap_or(Timer::Stop) as c_int
         }
 
         let milliseconds = timeout

@@ -1,4 +1,4 @@
-//! Types related to fake plugins.
+//! Fake plugins.
 
 use std::ffi::c_void;
 use std::ptr::NonNull;

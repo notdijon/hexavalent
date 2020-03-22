@@ -6,18 +6,18 @@ use std::os::raw::{c_char, c_int};
 use time::OffsetDateTime;
 
 #[allow(missing_debug_implementations, missing_docs, unreachable_pub)]
-mod bindings;
+mod binding;
 
 // constants https://hexchat.readthedocs.io/en/latest/plugins.html#types-and-constants
-pub(crate) use bindings::{
+pub(crate) use binding::{
     HEXCHAT_EAT_ALL, HEXCHAT_EAT_HEXCHAT, HEXCHAT_EAT_NONE, HEXCHAT_EAT_PLUGIN, HEXCHAT_PRI_HIGH,
     HEXCHAT_PRI_HIGHEST, HEXCHAT_PRI_LOW, HEXCHAT_PRI_LOWEST, HEXCHAT_PRI_NORM,
 };
 
 // types https://hexchat.readthedocs.io/en/latest/plugins.html#types-and-constants
-pub(crate) use bindings::{hexchat_context, hexchat_event_attrs, hexchat_hook, hexchat_list};
+pub(crate) use binding::{hexchat_context, hexchat_event_attrs, hexchat_hook, hexchat_list};
 // this is used publicly by generated code
-pub use bindings::hexchat_plugin;
+pub use binding::hexchat_plugin;
 
 // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print
 const SUCCESS: c_int = 1;

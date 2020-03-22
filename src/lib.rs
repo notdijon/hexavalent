@@ -19,8 +19,8 @@
 //! ```rust
 //! use std::cell::Cell;
 //! use hexavalent::{Plugin, PluginHandle, export_plugin};
-//! use hexavalent::events::Event;
-//! use hexavalent::events::print::Join;
+//! use hexavalent::event::Event;
+//! use hexavalent::event::print::Join;
 //! use hexavalent::hook::{Eat, Priority};
 //!
 //! struct AutoOpPlugin {
@@ -110,11 +110,13 @@ mod state;
 pub mod internal;
 
 pub mod context;
-pub mod events;
+pub mod event;
 pub mod gui;
 pub mod hook;
 pub mod info;
+pub mod list;
 pub mod mode;
+pub mod pref;
 pub mod strip;
 
 pub use plugin::{Plugin, PluginHandle};

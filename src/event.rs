@@ -1,4 +1,4 @@
-//! Types related to events.
+//! Print and server events.
 
 use std::ffi::CStr;
 use std::marker::PhantomData;
@@ -48,7 +48,7 @@ impl<'a> EventAttrs<'a> {
 
 /// Trait implemented by all event types.
 ///
-/// See the [`PrintEvent`](trait.PrintEvent.html) and [`ServerEvent`](trait.ServerEvent.html) traits for usage.
+/// See the [`PrintEvent`](print/trait.PrintEvent.html) and [`ServerEvent`](server/trait.ServerEvent.html) traits for usage.
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
 pub trait Event<'a>: private::EventImpl {
@@ -101,7 +101,7 @@ macro_rules! event {
     (
         $struct_name:ident,
         $event_name:literal,
-        $event_format:literal,
+        $event_doc:literal,
         $($index:literal : $field_name:literal),*
         $(, eol $eol_index:literal : $eol_name:literal)?
     ) => {
@@ -109,9 +109,7 @@ macro_rules! event {
         #[doc = $event_name]
         #[doc = "`"]
         #[doc = ""]
-        #[doc = "`"]
-        #[doc = $event_format]
-        #[doc = "`"]
+        #[doc = $event_doc]
         #[doc = ""]
         #[doc = "Fields: "]
         #[doc = "["]
@@ -133,12 +131,12 @@ macro_rules! event {
             const FIELD_COUNT: usize = count!($($index)* $($eol_index)?);
         }
 
-        unsafe impl crate::events::private::EventImpl for $struct_name {
+        unsafe impl crate::event::private::EventImpl for $struct_name {
             // Safety: this string is null-terminated and static
             const NAME: *const ::std::os::raw::c_char = concat!($event_name, "\0").as_ptr().cast();
         }
 
-        impl<'a> crate::events::Event<'a> for $struct_name {
+        impl<'a> crate::event::Event<'a> for $struct_name {
             $(
                 #[doc = ""]
                 #[doc = "`"]
@@ -223,128 +221,6 @@ macro_rules! event {
     };
 }
 
-/// Trait implemented by all print event types.
-///
-/// This trait is sealed and cannot be implemented outside of `hexavalent`.
-///
-/// # Examples
-///
-/// Emitting a print event.
-///
-/// ```rust
-/// use hexavalent::PluginHandle;
-/// use hexavalent::events::print::ChannelMessage;
-///
-/// fn print_welcome_message<P>(ph: PluginHandle<'_, P>) -> Result<(), ()> {
-///     ph.emit_print(ChannelMessage, ["hexavalent\0", "Plugin started!\0", "@\0", "\0"])
-/// }
-/// ```
-///
-/// Registering a hook for a print event.
-///
-/// ```rust
-/// use hexavalent::PluginHandle;
-/// use hexavalent::events::{Event, PrintEvent};
-/// use hexavalent::events::print::ChannelMessage;
-/// use hexavalent::hook::{Eat, Priority};
-///
-/// fn hook_message<P: 'static>(ph: PluginHandle<'_, P>) {
-///     ph.hook_print(ChannelMessage, Priority::Normal, message_cb);
-/// }
-///
-/// fn message_cb<P>(
-///     plugin: &P,
-///     ph: PluginHandle<'_, P>,
-///     args: <ChannelMessage as Event<'_>>::Args,
-/// ) -> Eat {
-///     let [nick, text, mode, ident] = args;
-///     ph.print(&format!(
-///         "Message from {} (with mode '{}', ident '{}'): {}\0",
-///         nick, mode, ident, text
-///     ));
-///     Eat::HexChat
-/// }
-/// ```
-pub trait PrintEvent: for<'a> Event<'a> {}
-
-macro_rules! print_event {
-    (
-        $struct_name:ident,
-        $event_name:literal,
-        $event_format:literal,
-        $($index:literal : $field_name:literal),*
-    ) => {
-        event!($struct_name, $event_name, $event_format, $($index : $field_name),*);
-
-        impl crate::events::PrintEvent for $struct_name {}
-    };
-}
-
-/// Print event types.
-///
-/// A list of all print events can also be viewed in HexChat under Settings > Text Events.
 pub mod print;
 
-/// Special print event types which can only be hooked, not emitted.
-///
-/// Used with hook registration functions such as [`PluginHandle::hook_print`](../../struct.PluginHandle.html#method.hook_print).
-///
-/// Attempting to emit these events with emission functions such as [`PluginHandle::emit_print`](../../struct.PluginHandle.html#method.emit_print) will always fail.
-///
-/// Analogous to the special print events documented for [`hexchat_hook_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print).
-pub mod print_special;
-
-/// Trait implemented by all server event types.
-///
-/// This trait is sealed and cannot be implemented outside of `hexavalent`.
-///
-/// # Examples
-///
-/// Registering a hook for a server event.
-///
-/// ```rust
-/// use hexavalent::PluginHandle;
-/// use hexavalent::events::{Event, ServerEvent};
-/// use hexavalent::events::server::Privmsg;
-/// use hexavalent::hook::{Eat, Priority};
-///
-/// fn hook_privmsg<P: 'static>(ph: PluginHandle<'_, P>) {
-///     ph.hook_server(Privmsg, Priority::Normal, privmsg_cb);
-/// }
-///
-/// fn privmsg_cb<P>(
-///     plugin: &P,
-///     ph: PluginHandle<'_, P>,
-///     args: <Privmsg as Event<'_>>::Args,
-/// ) -> Eat {
-///     let [sender, _, target, text] = args;
-///     ph.print(&format!(
-///         "Message from {} to {}: {}\0",
-///         sender, target, text
-///     ));
-///     Eat::None
-/// }
-/// ```
-pub trait ServerEvent: for<'a> Event<'a> {}
-
-macro_rules! server_event {
-    (
-        $struct_name:ident,
-        $event_name:literal,
-        $event_format:literal,
-        $($index:literal : $field_name:literal),*
-        $(, eol $eol_index:literal : $eol_name:literal)?
-    ) => {
-        event!($struct_name, $event_name, $event_format, $($index : $field_name),* $(, eol $eol_index : $eol_name)?);
-
-        impl crate::events::ServerEvent for $struct_name {}
-    };
-}
-
-/// Server event types.
 pub mod server;
-
-/// Special server events types which do not represent a message in the IRC specification.
-///
-/// Analogous to the special server events documented for [`hexchat_hook_server`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_server).
-pub mod server_special;

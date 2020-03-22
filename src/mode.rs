@@ -1,4 +1,4 @@
-//! Types related to sending modes.
+//! Sending modes.
 
 /// Whether to add or remove a mode.
 ///

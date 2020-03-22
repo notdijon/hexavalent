@@ -1,4 +1,4 @@
-//! Types related to hook callbacks.
+//! Hook callbacks.
 
 use std::ptr::NonNull;
 

@@ -1,4 +1,4 @@
-//! Types related to string format stripping.
+//! String format stripping.
 
 /// Whether to strip mIRC color attributes.
 ///

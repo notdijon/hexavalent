@@ -43,7 +43,7 @@ function* generateRustLines() {
 }
 
 function main() {
-	const file = fs.createWriteStream(path.join(__dirname, 'mod.rs'), 'utf8');
+	const file = fs.createWriteStream(path.join(__dirname, 'impls.rs'), 'utf8');
 
 	for (const line of generateRustLines()) {
 		file.write(line);

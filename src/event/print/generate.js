@@ -58,12 +58,12 @@ function* generateRustLines() {
 	}
 
 	for (const { name, fields_key, format } of readTextEvents()) {
-		yield `print_event!(${nameToCamelCase(name)}, "${name}", "${format}", ${field_descriptions[fields_key].map((field, i) => `${i}: "${field}"`).join(', ')});`;
+		yield `print_event!(${nameToCamelCase(name)}, "${name}", "\`${format}\`", ${field_descriptions[fields_key].map((field, i) => `${i}: "${field}"`).join(', ')});`;
 	}
 }
 
 function main() {
-	const file = fs.createWriteStream(path.join(__dirname, 'mod.rs'), 'utf8');
+	const file = fs.createWriteStream(path.join(__dirname, 'impls.rs'), 'utf8');
 
 	for (const line of generateRustLines()) {
 		file.write(line);

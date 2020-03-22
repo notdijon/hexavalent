@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-bindgen hexchat-plugin.h -o bindings.rs \
+bindgen hexchat-plugin.h -o binding.rs \
 --whitelist-type "hexchat.*" --whitelist-var "HEXCHAT.*" \
 --blacklist-type time_t \
 --raw-line "#![allow(dead_code)]" \
