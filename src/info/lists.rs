@@ -82,7 +82,7 @@ impl super::FromListElemField<i32> for ChannelFlags {
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone)]
 pub enum ChannelType {
-    /// The toplevel server "channel".
+    /// A toplevel server "channel".
     Server = 1,
     /// A normal channel.
     Channel = 2,
