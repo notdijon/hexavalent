@@ -1754,8 +1754,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
             )
         });
 
-        if let Err(e) = res {
-            return f(Err(e));
+        if let Err(()) = res {
+            return f(Err(()));
         }
 
         *buf.last_mut().unwrap() = 0;
@@ -1920,8 +1920,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
             ((*self.handle).hexchat_pluginpref_list)(self.handle, buf.as_mut_ptr())
         });
 
-        if let Err(e) = res {
-            return f(Err(e));
+        if let Err(()) = res {
+            return f(Err(()));
         }
 
         *buf.last_mut().unwrap() = 0;

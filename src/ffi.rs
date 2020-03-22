@@ -166,9 +166,7 @@ impl<'a> ListElem<'a> {
         let name = null_terminated_name.as_ptr().cast();
 
         // Safety: handle and list are always valid
-        let int = unsafe { ((*self.handle).hexchat_list_int)(self.handle, self.list, name) };
-
-        int
+        unsafe { ((*self.handle).hexchat_list_int)(self.handle, self.list, name) }
     }
 
     pub(crate) fn time(&self, null_terminated_name: &str) -> OffsetDateTime {

@@ -156,6 +156,7 @@ bitflags! {
     ///
     /// Part of [`Ignore`](struct.Ignore.html).
     pub struct IgnoreFlags: i32 {
+        #[allow(clippy::identity_op)]
         /// Private messages are ignored.
         const PRIVATE = 1 << 0;
         /// Notice messages are ignored.
@@ -201,6 +202,7 @@ bitflags! {
     ///
     /// Part of [`Notify`](struct.Notify.html).
     pub struct NotifyFlags: i32 {
+        #[allow(clippy::identity_op)]
         /// The nick is online.
         const IS_ONLINE = 1 << 0;
     }
