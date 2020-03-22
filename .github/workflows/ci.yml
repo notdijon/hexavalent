@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - v*.*.*
   pull_request:
 
 jobs:
@@ -47,14 +49,6 @@ jobs:
           toolchain: stable
       - run: RUSTFLAGS="-D warnings" cargo test
       - run: RUSTFLAGS="-D warnings" cargo test --release
-
-  test-features:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
       - run: RUSTFLAGS="-D warnings" cargo test --all-features
       - run: RUSTFLAGS="-D warnings" cargo test --release --all-features
 
@@ -67,3 +61,16 @@ jobs:
           toolchain: stable
       - run: cargo test
       - run: cargo test --release
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo package
+      - run: cargo publish --token $CRATES_IO_TOKEN
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
