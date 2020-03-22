@@ -222,7 +222,7 @@ macro_rules! list {
         #[doc = $elem_desc]
         ///
         /// See the [`List`](../trait.List.html) trait for usage.
-        #[derive(Debug)]
+        #[derive(Debug, Clone)]
         pub struct $elem_ty {
             $(
                 $rust_field_name: $rust_field_type
@@ -274,7 +274,7 @@ macro_rules! list {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct SplitByCommas(String);
 
 trait FromListElemField<T> {
