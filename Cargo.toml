@@ -1,9 +1,9 @@
 [package]
 name = "hexavalent"
-version = "0.1.0"
+version = "0.1.2"
 authors = ["notdijon <61089563+notdijon@users.noreply.github.com>"]
 license = "MIT"
-description = "Write Hexchat plugins in Rust"
+description = "Write HexChat plugins in Rust."
 repository = "https://github.com/notdijon/hexavalent"
 documentation = "https://docs.rs/hexavalent"
 readme = "./README.md"
@@ -12,7 +12,18 @@ keywords = ["hexchat", "irc"]
 edition = "2018"
 
 [dependencies]
-libc = "0.2.66"
+bitflags = { version = "1.2.1", default-features = false }
+libc = { version = "0.2.67", default-features = false }
+time = { version = "0.2.9", default-features = false }
+
+[features]
+default = []
+__unstable_ircv3_line_in_event_attrs = []
+
+[profile.release]
+lto = true
+codegen-units = 1
+debug = 1
 
 [[example]]
 name = "simple"

@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - v*.*.*
   pull_request:
 
 jobs:
@@ -27,6 +29,17 @@ jobs:
       - run: rustup component add clippy
       - run: RUSTFLAGS="-D warnings" cargo clippy
 
+  doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo install cargo-deadlinks
+      - run: RUSTFLAGS="-D warnings" cargo doc
+      - run: RUSTFLAGS="-D warnings" cargo deadlinks
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -34,8 +47,10 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cargo test
-      - run: cargo test --release
+      - run: RUSTFLAGS="-D warnings" cargo test
+      - run: RUSTFLAGS="-D warnings" cargo test --release
+      - run: RUSTFLAGS="-D warnings" cargo test --all-features
+      - run: RUSTFLAGS="-D warnings" cargo test --release --all-features
 
   test-windows:
     runs-on: windows-latest
@@ -46,3 +61,16 @@ jobs:
           toolchain: stable
       - run: cargo test
       - run: cargo test --release
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo package
+      - run: cargo publish --token $CRATES_IO_TOKEN
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}

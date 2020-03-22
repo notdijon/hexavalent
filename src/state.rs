@@ -1,13 +1,68 @@
 use std::any::Any;
 use std::cell::UnsafeCell;
 use std::ops::Deref;
-use std::os::raw::{c_char, c_int};
+use std::os::raw::c_int;
+use std::panic::{catch_unwind, UnwindSafe};
+use std::process;
 use std::ptr;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 use std::usize;
 
-use crate::ffi::{catch_and_log_unwind, hexchat_plugin, hexchat_print};
-use crate::plugin::{HexchatPlugin, PluginHandle};
+use crate::ffi::{hexchat_plugin, result_to_int};
+use crate::plugin::{Plugin, PluginHandle};
+
+/// Plugin handle used to log caught panics, when the normal (safe) plugin context might not be available.
+static LAST_RESORT_PLUGIN_HANDLE: AtomicPtr<hexchat_plugin> = AtomicPtr::new(ptr::null_mut());
+
+/// Runs a closure under `catch_unwind` and logs the panic using `hexchat_print` if it happens.
+///
+/// Warning: if `LAST_RESORT_PLUGIN_HANDLE` is not defined when a panic happens, this function will abort the process.
+pub(crate) fn catch_and_log_unwind<R>(
+    ctxt_msg: &str,
+    f: impl FnOnce() -> R + UnwindSafe,
+) -> Result<R, ()> {
+    fn abort_process_due_to_panic_in_panic_logger() -> ! {
+        process::abort()
+    }
+
+    fn abort_process_due_to_panic_without_plugin_handle() -> ! {
+        process::abort()
+    }
+
+    catch_unwind(|| match catch_unwind(f) {
+        Ok(x) => Ok(x),
+        Err(e) => {
+            let panic_msg = if let Some(s) = e.downcast_ref::<String>() {
+                s.as_str()
+            } else if let Some(s) = e.downcast_ref::<&'static str>() {
+                s
+            } else {
+                &"<unknown>"
+            };
+
+            eprintln!(
+                "WARNING: `hexavalent` caught panic (in `{}`): {}",
+                ctxt_msg, panic_msg
+            );
+
+            let plugin_handle = LAST_RESORT_PLUGIN_HANDLE.load(Ordering::SeqCst);
+            if plugin_handle.is_null() {
+                eprintln!("FATAL: `hexavalent` cannot find a plugin context");
+                abort_process_due_to_panic_without_plugin_handle()
+            } else {
+                let message = format!(
+                    "WARNING: `hexavalent` caught panic (in `{}`): {}\0",
+                    ctxt_msg, panic_msg
+                );
+                // Safety: message is null-terminated
+                // (Un)Safety: plugin_handle may not be valid, but there's nothing we can do here
+                unsafe { ((*plugin_handle).hexchat_print)(plugin_handle, message.as_ptr().cast()) }
+                Err(())
+            }
+        }
+    })
+    .unwrap_or_else(|_| abort_process_due_to_panic_in_panic_logger())
+}
 
 const NO_READERS: usize = 0;
 const LOCKED: usize = usize::MAX;
@@ -19,9 +74,9 @@ const LOCKED: usize = usize::MAX;
 ///
 /// Similar to an RWLock, but used only to validate that HexChat is behaving safely.
 /// That is, if a function in this module encounters a "locked" state, it panics instead of blocking.
-static HANDLES_STATE: AtomicUsize = AtomicUsize::new(NO_READERS);
+static STATE: AtomicUsize = AtomicUsize::new(NO_READERS);
 
-/// Container for types externally synchronized by `HANDLES_STATE`.
+/// Container for types externally synchronized by `STATE`.
 struct ExtSync<T>(UnsafeCell<T>);
 
 // This impl is only sound if HexChat always invokes us from the same thread (the library-wide safety assumption).
@@ -35,52 +90,43 @@ impl<T> Deref for ExtSync<T> {
     }
 }
 
-/// Global handle to the user's plugin data.
-///
-/// Only accessible outside this module via the safe interface `with_plugin_state`.
-static USER_HANDLE: ExtSync<Option<Box<dyn Any>>> = ExtSync(UnsafeCell::new(None));
+struct GlobalPlugin {
+    #[cfg(debug_assertions)]
+    thread_id: std::thread::ThreadId,
+    plugin: Box<dyn Any>,
+    plugin_handle: *mut hexchat_plugin,
+}
 
-/// Global handle to the current HexChat plugin context.
+/// Global handle to the user's plugin data and the global HexChat plugin context.
 ///
 /// Only accessible outside this module via the safe interface `with_plugin_state`.
-///
-/// Exported as "ph" to satisfy plugin requirements on Windows, see:
-/// https://hexchat.readthedocs.io/en/latest/plugins.html#plugins-on-windows-win32
-static PLUGIN_HANDLE: ExtSync<*mut hexchat_plugin> = ExtSync(UnsafeCell::new(ptr::null_mut()));
+static PLUGIN: ExtSync<Option<GlobalPlugin>> = ExtSync(UnsafeCell::new(None));
 
 /// Initializes a plugin of type `P`.
 ///
 /// # Safety
 ///
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
-///
-/// # Panics
-///
-/// If the plugin is running and currently holds a reference to the plugin state.
-pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
-    plugin_handle: *mut hexchat_plugin,
-) -> c_int {
-    ((*plugin_handle).hexchat_print.unwrap())(
-        plugin_handle,
-        "test plugin loaded \n\0".as_ptr() as *const c_char,
-    );
-    match catch_and_log_unwind(|| {
-        {
-            let replaced_state =
-                HANDLES_STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::SeqCst);
-            assert_eq!(replaced_state, NO_READERS, "initialized while running");
-            defer! { HANDLES_STATE.store(NO_READERS, Ordering::SeqCst) };
+pub(crate) unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
+    result_to_int(catch_and_log_unwind("init", || {
+        LAST_RESORT_PLUGIN_HANDLE.store(plugin_handle, Ordering::SeqCst);
 
-            // Safety: HANDLES_STATE guarantees unique access to handles
-            *USER_HANDLE.get() = Some(Box::new(P::default()));
-            *PLUGIN_HANDLE.get() = plugin_handle;
+        {
+            let replaced_state = STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::SeqCst);
+            assert_eq!(replaced_state, NO_READERS, "initialized while running");
+            defer! { STATE.store(NO_READERS, Ordering::SeqCst) };
+
+            // Safety: STATE guarantees unique access to handles
+            *PLUGIN.get() = Some(GlobalPlugin {
+                #[cfg(debug_assertions)]
+                thread_id: std::thread::current().id(),
+                plugin: Box::new(P::default()),
+                plugin_handle,
+            });
         }
 
-        with_plugin_state(|this: &P, ph| this.init(ph));
-    }) {
-        Ok(()) => 1,
-        Err(_) => 0,
-    }
+        with_plugin_state(|plugin: &P, ph| plugin.init(ph));
+    }))
 }
 
 /// Deinitializes a plugin of type `P`.
@@ -88,30 +134,22 @@ pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
 /// # Safety
 ///
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
-///
-/// # Panics
-///
-/// If the plugin is running and currently holds a reference to the plugin state.
-pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(
-    _plugin_handle: *mut hexchat_plugin,
-) -> c_int {
-    match catch_and_log_unwind(|| {
-        with_plugin_state(|this: &P, ph| this.deinit(ph));
+pub(crate) unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
+    let _ = plugin_handle;
+    result_to_int(catch_and_log_unwind("deinit", || {
+        with_plugin_state(|plugin: &P, ph| plugin.deinit(ph));
 
         {
-            let replaced_state =
-                HANDLES_STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::SeqCst);
+            let replaced_state = STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::SeqCst);
             assert_eq!(replaced_state, NO_READERS, "deinitialized while running");
-            defer! { HANDLES_STATE.store(NO_READERS, Ordering::SeqCst) };
+            defer! { STATE.store(NO_READERS, Ordering::SeqCst) };
 
-            // Safety: HANDLES_STATE guarantees unique access to handles
-            *PLUGIN_HANDLE.get() = ptr::null_mut();
-            *USER_HANDLE.get() = None;
+            // Safety: STATE guarantees unique access to handles
+            *PLUGIN.get() = None;
         }
-    }) {
-        Ok(()) => 1,
-        Err(_) => 0,
-    }
+
+        LAST_RESORT_PLUGIN_HANDLE.store(ptr::null_mut(), Ordering::SeqCst);
+    }))
 }
 
 /// Gets a safe reference to the current HexChat plugin handle and a plugin of type `P`.
@@ -123,31 +161,37 @@ pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(
 /// If the plugin is currently being initialized or deinitialized.
 ///
 /// If the initialized plugin is not of type `P`.
-pub fn with_plugin_state<P: HexchatPlugin, R>(f: impl FnOnce(&P, PluginHandle<'_>) -> R) -> R {
+pub(crate) fn with_plugin_state<P: 'static, R>(f: impl FnOnce(&P, PluginHandle<'_, P>) -> R) -> R {
     // usually this check would be looped to account for multiple reader threads trying to acquire it at the same time
     // but we expect there to be only one thread, so panic instead
-    let old_state = HANDLES_STATE.load(Ordering::SeqCst);
+    let old_state = STATE.load(Ordering::Relaxed);
     assert_ne!(old_state, LOCKED, "plugin invoked while (un)loading");
-    let replaced_state = HANDLES_STATE.compare_and_swap(old_state, old_state + 1, Ordering::SeqCst);
+    let replaced_state = STATE.compare_and_swap(old_state, old_state + 1, Ordering::SeqCst);
     assert_ne!(replaced_state, LOCKED, "plugin invoked while (un)loading");
     assert_eq!(replaced_state, old_state, "plugin invoked concurrently (?)");
-    defer! { HANDLES_STATE.fetch_sub(1, Ordering::SeqCst) };
+    defer! { STATE.fetch_sub(1, Ordering::SeqCst) };
 
-    // Safety: HANDLES_STATE guarantees that there are only readers active
-    let user_handle = unsafe {
-        (&*USER_HANDLE.get())
+    // Safety: STATE guarantees that there are only readers active
+    let global_plugin = unsafe {
+        (&*PLUGIN.get())
             .as_ref()
-            .unwrap_or_else(|| panic!("plugin invoked while uninitialized"))
-            .downcast_ref()
-            .unwrap_or_else(|| panic!("stored plugin is an unexpected type"))
+            .unwrap_or_else(|| panic!("Plugin invoked while uninitialized"))
     };
 
-    // Safety: HANDLES_STATE guarantees that there are only readers active
-    let plugin_handle = unsafe {
-        let handle = *PLUGIN_HANDLE.get();
-        assert!(!handle.is_null(), "plugin handle is null");
-        PluginHandle::new(handle)
-    };
+    #[cfg(debug_assertions)]
+    debug_assert_eq!(
+        global_plugin.thread_id,
+        std::thread::current().id(),
+        "plugin invoked from different thread"
+    );
 
-    f(user_handle, plugin_handle)
+    let plugin = global_plugin
+        .plugin
+        .downcast_ref()
+        .unwrap_or_else(|| panic!("Plugin is an unexpected type"));
+
+    // Safety: we only store valid `plugin_handle`s in `PLUGIN`
+    let ph = unsafe { PluginHandle::new(global_plugin.plugin_handle) };
+
+    f(plugin, ph)
 }

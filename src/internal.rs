@@ -4,34 +4,35 @@
 
 use std::os::raw::c_int;
 
-use crate::plugin::HexchatPlugin;
+use crate::plugin::Plugin;
 use crate::state;
 
-/// Internal type used by the `hexchat_plugin` macro.
-/// Do not use this type directly.
+/// UNSTABLE: do not use this type.
+///
+/// Used by the `hexchat_plugin` macro.
 #[doc(hidden)]
 pub use crate::ffi::hexchat_plugin;
 
-/// Internal function used by the `hexchat_plugin` macro.
-/// Do not call this function directly.
+/// UNSTABLE: do not call this function.
+///
+/// Used by the `hexchat_plugin` macro.
 ///
 /// # Safety
 ///
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
 #[doc(hidden)]
-pub unsafe fn hexchat_plugin_init<P: HexchatPlugin + Default>(
-    plugin_handle: *mut hexchat_plugin,
-) -> c_int {
+pub unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
     state::hexchat_plugin_init::<P>(plugin_handle)
 }
 
-/// Internal function used by the `hexchat_plugin` macro.
-/// Do not call this function directly.
+/// UNSTABLE: do not call this function.
+///
+/// Used by the `hexchat_plugin` macro.
 ///
 /// # Safety
 ///
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
 #[doc(hidden)]
-pub unsafe fn hexchat_plugin_deinit<P: HexchatPlugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
+pub unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
     state::hexchat_plugin_deinit::<P>(plugin_handle)
 }
