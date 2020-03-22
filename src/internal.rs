@@ -7,13 +7,13 @@ use std::os::raw::c_int;
 use crate::plugin::Plugin;
 use crate::state;
 
-/// UNSTABLE: do not use this type directly.
+/// UNSTABLE: do not use this type.
 ///
 /// Used by the `hexchat_plugin` macro.
 #[doc(hidden)]
 pub use crate::ffi::hexchat_plugin;
 
-/// UNSTABLE: do not call this function directly.
+/// UNSTABLE: do not call this function.
 ///
 /// Used by the `hexchat_plugin` macro.
 ///
@@ -25,7 +25,7 @@ pub unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_plugin)
     state::hexchat_plugin_init::<P>(plugin_handle)
 }
 
-/// UNSTABLE: do not call this function directly.
+/// UNSTABLE: do not call this function.
 ///
 /// Used by the `hexchat_plugin` macro.
 ///

@@ -18,7 +18,8 @@ use crate::ffi::{
 };
 use crate::gui::FakePluginHandle;
 use crate::hook::{self, HookHandle};
-use crate::info::{FromInfoValue, FromListElem, FromPrefValue, Info, List, Pref, PrefValue};
+use crate::info::private::{FromInfoValue, FromListElem, FromPrefValue, PrefValue};
+use crate::info::{Info, List, Pref};
 use crate::mode;
 use crate::state::{catch_and_log_unwind, with_plugin_state};
 use crate::strip;

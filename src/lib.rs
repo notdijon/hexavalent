@@ -94,7 +94,9 @@
     missing_debug_implementations,
     missing_docs,
     missing_doc_code_examples,
-    trivial_numeric_casts
+    trivial_numeric_casts,
+    unreachable_pub,
+    unused_qualifications
 )]
 
 #[macro_use]

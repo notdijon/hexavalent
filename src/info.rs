@@ -138,8 +138,6 @@ pub(crate) mod private {
     }
 }
 
-pub(crate) use private::{FromInfoValue, FromListElem, FromPrefValue, PrefValue};
-
 macro_rules! info {
     ($struct_name:ident, $info_name:literal, $ty:ty, $description:literal) => {
         #[doc = "`"]

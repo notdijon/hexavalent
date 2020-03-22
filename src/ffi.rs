@@ -5,40 +5,39 @@ use std::os::raw::{c_char, c_int};
 
 use time::OffsetDateTime;
 
-#[allow(missing_debug_implementations, missing_docs)]
+#[allow(missing_debug_implementations, missing_docs, unreachable_pub)]
 mod bindings;
 
 // constants https://hexchat.readthedocs.io/en/latest/plugins.html#types-and-constants
-pub use bindings::{
-    HEXCHAT_EAT_ALL, HEXCHAT_EAT_HEXCHAT, HEXCHAT_EAT_NONE, HEXCHAT_EAT_PLUGIN,
-    HEXCHAT_FD_EXCEPTION, HEXCHAT_FD_NOTSOCKET, HEXCHAT_FD_READ, HEXCHAT_FD_WRITE,
-    HEXCHAT_PRI_HIGH, HEXCHAT_PRI_HIGHEST, HEXCHAT_PRI_LOW, HEXCHAT_PRI_LOWEST, HEXCHAT_PRI_NORM,
+pub(crate) use bindings::{
+    HEXCHAT_EAT_ALL, HEXCHAT_EAT_HEXCHAT, HEXCHAT_EAT_NONE, HEXCHAT_EAT_PLUGIN, HEXCHAT_PRI_HIGH,
+    HEXCHAT_PRI_HIGHEST, HEXCHAT_PRI_LOW, HEXCHAT_PRI_LOWEST, HEXCHAT_PRI_NORM,
 };
 
 // types https://hexchat.readthedocs.io/en/latest/plugins.html#types-and-constants
-pub use bindings::{
-    hexchat_context, hexchat_event_attrs, hexchat_hook, hexchat_list, hexchat_plugin,
-};
+pub(crate) use bindings::{hexchat_context, hexchat_event_attrs, hexchat_hook, hexchat_list};
+// this is used publicly by generated code
+pub use bindings::hexchat_plugin;
 
 // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print
 const SUCCESS: c_int = 1;
 const FAILURE: c_int = 0;
 
-pub fn int_to_result(ret_code: c_int) -> Result<(), ()> {
+pub(crate) fn int_to_result(ret_code: c_int) -> Result<(), ()> {
     match ret_code {
         SUCCESS => Ok(()),
         _ => Err(()),
     }
 }
 
-pub fn result_to_int(res: Result<(), ()>) -> c_int {
+pub(crate) fn result_to_int(res: Result<(), ()>) -> c_int {
     match res {
         Ok(()) => SUCCESS,
         Err(_) => FAILURE,
     }
 }
 
-pub trait StrExt {
+pub(crate) trait StrExt {
     type CSTR: AsRef<CStr>;
 
     fn into_cstr(self) -> Self::CSTR;
@@ -65,7 +64,9 @@ impl<'a> StrExt for &'a str {
 ///
 /// `word` must be valid for the entire lifetime `'a`.
 #[allow(clippy::trivially_copy_pass_by_ref)]
-pub unsafe fn word_to_iter<'a>(word: &'a *mut *mut c_char) -> impl Iterator<Item = &'a CStr> {
+pub(crate) unsafe fn word_to_iter<'a>(
+    word: &'a *mut *mut c_char,
+) -> impl Iterator<Item = &'a CStr> {
     // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
     // Safety: first index is reserved, per documentation
     let word = word.add(1);
@@ -113,6 +114,7 @@ pub unsafe fn word_to_iter<'a>(word: &'a *mut *mut c_char) -> impl Iterator<Item
     }
 }
 
+#[allow(unreachable_pub)]
 #[derive(Debug)]
 pub struct ListElem<'a> {
     /// Always points to a valid instance of `hexchat_plugin`.
@@ -132,7 +134,7 @@ impl<'a> ListElem<'a> {
     /// `list` must point to a `hexchat_list` element (e.g. one for which `hexchat_list_next` returned true),
     /// which is valid for the entire lifetime `'a`.
     #[allow(clippy::trivially_copy_pass_by_ref)]
-    pub unsafe fn new(handle: &'a *mut hexchat_plugin, list: &'a *mut hexchat_list) -> Self {
+    pub(crate) unsafe fn new(handle: &'a *mut hexchat_plugin, list: &'a *mut hexchat_list) -> Self {
         Self {
             handle: *handle,
             list: *list,
@@ -140,7 +142,7 @@ impl<'a> ListElem<'a> {
         }
     }
 
-    pub fn string(&self, null_terminated_name: &str) -> Option<&'a str> {
+    pub(crate) fn string(&self, null_terminated_name: &str) -> Option<&'a str> {
         assert!(null_terminated_name.as_bytes().last().copied() == Some(0));
         let name = null_terminated_name.as_ptr().cast();
 
@@ -159,7 +161,7 @@ impl<'a> ListElem<'a> {
         Some(str)
     }
 
-    pub fn int(&self, null_terminated_name: &str) -> i32 {
+    pub(crate) fn int(&self, null_terminated_name: &str) -> i32 {
         assert!(null_terminated_name.as_bytes().last().copied() == Some(0));
         let name = null_terminated_name.as_ptr().cast();
 
@@ -169,7 +171,7 @@ impl<'a> ListElem<'a> {
         int
     }
 
-    pub fn time(&self, null_terminated_name: &str) -> OffsetDateTime {
+    pub(crate) fn time(&self, null_terminated_name: &str) -> OffsetDateTime {
         assert!(null_terminated_name.as_bytes().last().copied() == Some(0));
         let name = null_terminated_name.as_ptr().cast();
 

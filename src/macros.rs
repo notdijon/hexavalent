@@ -8,10 +8,10 @@ macro_rules! defer {
     };
 }
 
-pub struct RunOnDrop<F: FnOnce()>(ManuallyDrop<F>);
+pub(crate) struct RunOnDrop<F: FnOnce()>(ManuallyDrop<F>);
 
 impl<F: FnOnce()> RunOnDrop<F> {
-    pub fn new(f: F) -> Self {
+    pub(crate) fn new(f: F) -> Self {
         Self(ManuallyDrop::new(f))
     }
 }

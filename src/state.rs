@@ -17,7 +17,7 @@ static LAST_RESORT_PLUGIN_HANDLE: AtomicPtr<hexchat_plugin> = AtomicPtr::new(ptr
 /// Runs a closure under `catch_unwind` and logs the panic using `hexchat_print` if it happens.
 ///
 /// Warning: if `LAST_RESORT_PLUGIN_HANDLE` is not defined when a panic happens, this function will abort the process.
-pub fn catch_and_log_unwind<R>(
+pub(crate) fn catch_and_log_unwind<R>(
     ctxt_msg: &str,
     f: impl FnOnce() -> R + UnwindSafe,
 ) -> Result<R, ()> {
@@ -107,7 +107,7 @@ static PLUGIN: ExtSync<Option<GlobalPlugin>> = ExtSync(UnsafeCell::new(None));
 /// # Safety
 ///
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
-pub unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
+pub(crate) unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
     result_to_int(catch_and_log_unwind("init", || {
         LAST_RESORT_PLUGIN_HANDLE.store(plugin_handle, Ordering::SeqCst);
 
@@ -134,7 +134,8 @@ pub unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_plugin)
 /// # Safety
 ///
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
-pub unsafe fn hexchat_plugin_deinit<P: Plugin>(_plugin_handle: *mut hexchat_plugin) -> c_int {
+pub(crate) unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
+    let _ = plugin_handle;
     result_to_int(catch_and_log_unwind("deinit", || {
         with_plugin_state(|plugin: &P, ph| plugin.deinit(ph));
 
@@ -160,7 +161,7 @@ pub unsafe fn hexchat_plugin_deinit<P: Plugin>(_plugin_handle: *mut hexchat_plug
 /// If the plugin is currently being initialized or deinitialized.
 ///
 /// If the initialized plugin is not of type `P`.
-pub fn with_plugin_state<P: 'static, R>(f: impl FnOnce(&P, PluginHandle<'_, P>) -> R) -> R {
+pub(crate) fn with_plugin_state<P: 'static, R>(f: impl FnOnce(&P, PluginHandle<'_, P>) -> R) -> R {
     // usually this check would be looped to account for multiple reader threads trying to acquire it at the same time
     // but we expect there to be only one thread, so panic instead
     let old_state = STATE.load(Ordering::Relaxed);

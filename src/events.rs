@@ -42,13 +42,13 @@ pub trait Event<'a>: private::EventImpl {
     /// The arguments associated with this event.
     type Args: AsRef<[&'a str]>;
 
-    /// UNSTABLE: do not call this function directly.
+    /// UNSTABLE: do not call this function.
     ///
     /// Converts this event's args to C-style strings.
     #[doc(hidden)]
     fn args_to_c<R>(args: Self::Args, f: impl FnOnce(&[&CStr]) -> R) -> R;
 
-    /// UNSTABLE: do not call this function directly.
+    /// UNSTABLE: do not call this function.
     ///
     /// Converts an array of C-style strings to this event's args.
     ///
