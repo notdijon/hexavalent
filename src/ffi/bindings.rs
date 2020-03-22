@@ -42,6 +42,8 @@ pub type hexchat_context = _hexchat_context;
 #[repr(C)]
 pub struct hexchat_event_attrs {
     pub server_time_utc: time_t,
+    #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+    pub ircv3_line: *const ::std::os::raw::c_char,
 }
 #[test]
 fn bindgen_test_layout_hexchat_event_attrs() {

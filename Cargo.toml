@@ -16,6 +16,10 @@ bitflags = { version = "1.2.1", default-features = false }
 libc = { version = "0.2.67", default-features = false }
 time = { version = "0.2.9", default-features = false }
 
+[features]
+default = []
+__unstable_ircv3_line_in_event_attrs = []
+
 [profile.release]
 lto = true
 codegen-units = 1

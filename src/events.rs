@@ -15,14 +15,21 @@ use time::OffsetDateTime;
 #[derive(Debug, Copy, Clone)]
 pub struct EventAttrs<'a> {
     time: OffsetDateTime,
+    #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+    ircv3_line: &'a str,
     _lifetime: PhantomData<&'a ()>,
 }
 
 impl<'a> EventAttrs<'a> {
     /// Creates a new `EventAttrs` from the specified event timestamp.
-    pub fn new(time: OffsetDateTime) -> Self {
+    pub fn new(
+        time: OffsetDateTime,
+        #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")] ircv3_line: &'a str,
+    ) -> Self {
         Self {
             time,
+            #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+            ircv3_line,
             _lifetime: PhantomData,
         }
     }
@@ -30,6 +37,12 @@ impl<'a> EventAttrs<'a> {
     /// Gets the timestamp associated with this event.
     pub fn time(self) -> OffsetDateTime {
         self.time
+    }
+
+    /// Gets the IRCv3 line associated with this event.
+    #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+    pub fn ircv3_line(self) -> &'a str {
+        self.ircv3_line
     }
 }
 

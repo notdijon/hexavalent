@@ -360,6 +360,14 @@ impl<'ph, P> PluginHandle<'ph, P> {
                     attrs.time().timestamp(),
                 );
 
+                #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+                let ircv3_line = attrs.ircv3_line().into_cstr();
+                #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+                ptr::write(
+                    &mut (*event_attrs).ircv3_line as *mut _,
+                    ircv3_line.as_ptr(),
+                );
+
                 ((*self.handle).hexchat_emit_print_attrs)(
                     self.handle,
                     event_attrs,
@@ -1151,7 +1159,18 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
                 let timestamp = unsafe { (*attrs).server_time_utc };
-                let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(timestamp));
+
+                // Safety: attrs is a valid hexchat_event_attrs pointer; ircv3_line is a valid string; temporary does not outlive this function
+                #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+                let ircv3_line = unsafe { CStr::from_ptr((*attrs).ircv3_line) }
+                    .to_str()
+                    .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_event_attrs`: {}", e));
+
+                let attrs = EventAttrs::new(
+                    OffsetDateTime::from_unix_timestamp(timestamp),
+                    #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+                    ircv3_line,
+                );
 
                 // Safety: `word` is a valid word pointer for this entire callback
                 let word = unsafe { word_to_iter(&word) };
@@ -1349,7 +1368,18 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
                 let timestamp = unsafe { (*attrs).server_time_utc };
-                let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(timestamp));
+
+                // Safety: attrs is a valid hexchat_event_attrs pointer; ircv3_line is a valid string; temporary does not outlive this function
+                #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+                let ircv3_line = unsafe { CStr::from_ptr((*attrs).ircv3_line) }
+                    .to_str()
+                    .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_event_attrs`: {}", e));
+
+                let attrs = EventAttrs::new(
+                    OffsetDateTime::from_unix_timestamp(timestamp),
+                    #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+                    ircv3_line,
+                );
 
                 // Safety: `word` is a valid word pointer for this entire callback
                 let word = unsafe { word_to_iter(&word) };
