@@ -65,5 +65,5 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: RUSTFLAGS="-D warnings" cargo test
-      - run: RUSTFLAGS="-D warnings" cargo test --release
+      - run: cargo test
+      - run: cargo test --release
