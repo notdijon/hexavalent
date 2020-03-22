@@ -615,7 +615,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Gets settings information from HexChat, as available with `/set`.
     ///
     /// See the [`pref`](pref/index.html) submodule for a list of preferences.
-    /// See also the [`pref::special`](pref/special/index.html) submodule for a list of special "preferences" that do not show up under `/set`.
     ///
     /// Analogous to [`hexchat_get_prefs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_prefs).
     ///
@@ -1001,7 +1000,6 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// Registers a print event hook with HexChat.
     ///
     /// See the [`event::print`](event/print/index.html) submodule for a list of print events.
-    /// See also the [`event::print::special`](event/print/special/index.html) submodule for a list of special hook-only print events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
@@ -1090,7 +1088,6 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// Registers a print event hook with HexChat, capturing the event's attributes.
     ///
     /// See the [`event::print`](event/print/index.html) submodule for a list of print events.
-    /// See also the [`event::print::special`](event/print/special/index.html) submodule for a list of special hook-only print events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
@@ -1202,7 +1199,6 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// Registers a server event hook with HexChat.
     ///
     /// See the [`event::server`](event/server/index.html) submodule for a list of server events.
-    /// See also the [`event::server::special`](event/server/special/index.html) submodule for a list of special server events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
@@ -1294,7 +1290,6 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// Registers a server event hook with HexChat, capturing the event's attributes.
     ///
     /// See the [`event::server`](event/server/index.html) submodule for a list of server events.
-    /// See also the [`event::server::special`](event/server/special/index.html) submodule for a list of special server events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
