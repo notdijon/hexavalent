@@ -112,8 +112,9 @@ pub(crate) unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_
         LAST_RESORT_PLUGIN_HANDLE.store(plugin_handle, Ordering::Relaxed);
 
         {
-            let replaced_state = STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::Relaxed);
-            assert_eq!(replaced_state, NO_READERS, "initialized while running");
+            STATE
+                .compare_exchange(NO_READERS, LOCKED, Ordering::Relaxed, Ordering::Relaxed)
+                .unwrap_or_else(|e| panic!("Plugin initialized while running, state: {}", e));
             defer! { STATE.store(NO_READERS, Ordering::Relaxed) };
 
             // Safety: STATE guarantees unique access to handles
@@ -140,8 +141,9 @@ pub(crate) unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexcha
         with_plugin_state(|plugin: &P, ph| plugin.deinit(ph));
 
         {
-            let replaced_state = STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::Relaxed);
-            assert_eq!(replaced_state, NO_READERS, "deinitialized while running");
+            STATE
+                .compare_exchange(NO_READERS, LOCKED, Ordering::Relaxed, Ordering::Relaxed)
+                .unwrap_or_else(|e| panic!("Plugin deinitialized while running, state: {}", e));
             defer! { STATE.store(NO_READERS, Ordering::Relaxed) };
 
             // Safety: STATE guarantees unique access to handles
@@ -164,14 +166,16 @@ pub(crate) unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexcha
 pub(crate) fn with_plugin_state<P: 'static, R>(f: impl FnOnce(&P, PluginHandle<'_, P>) -> R) -> R {
     // usually this check would be looped to account for multiple reader threads trying to acquire it at the same time
     // but we expect there to be only one thread, so panic instead
-    let old_state = STATE.load(Ordering::Relaxed);
-    assert_ne!(old_state, LOCKED, "plugin invoked while (un)loading");
-    let replaced_state = STATE.compare_and_swap(old_state, old_state + 1, Ordering::Relaxed);
-    assert_ne!(replaced_state, LOCKED, "plugin invoked while (un)loading");
-    assert_eq!(replaced_state, old_state, "plugin invoked concurrently (?)");
+    let state = STATE.load(Ordering::Relaxed);
+    assert_ne!(state, LOCKED, "plugin invoked while (un)loading");
+    assert_ne!(state + 1, LOCKED, "too many references to plugin state");
+    STATE
+        .compare_exchange(state, state + 1, Ordering::Relaxed, Ordering::Relaxed)
+        .unwrap_or_else(|e| panic!("Plugin invoked concurrently (?), state: {}", e));
     defer! {{
-        let replaced_state = STATE.compare_and_swap(old_state + 1, old_state, Ordering::Relaxed);
-        assert_eq!(replaced_state, old_state + 1, "plugin invoked concurrently (?)");
+        STATE
+            .compare_exchange(state + 1, state, Ordering::Relaxed, Ordering::Relaxed)
+            .unwrap_or_else(|e| panic!("Plugin invoked concurrently (?), state: {}", e));
     }}
 
     // Safety: STATE guarantees that there are only readers active
