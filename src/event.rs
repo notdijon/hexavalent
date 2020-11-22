@@ -1,6 +1,5 @@
 //! Print and server events.
 
-use std::ffi::CStr;
 use std::marker::PhantomData;
 
 use time::OffsetDateTime;
@@ -51,40 +50,44 @@ impl<'a> EventAttrs<'a> {
 /// See the [`PrintEvent`](print::PrintEvent) and [`ServerEvent`](server::ServerEvent) traits for usage.
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
-pub trait Event<'a>: private::EventImpl {
+pub trait Event<'a>: private::EventImpl<'a>
+where
+    Self::Args: From<Self::ArgsImpl>,
+    Self::Args: Into<Self::ArgsImpl>,
+{
     /// The arguments associated with this event.
     type Args: AsRef<[&'a str]>;
-
-    /// UNSTABLE: do not call this function.
-    ///
-    /// Converts this event's args to C-style strings.
-    #[doc(hidden)]
-    fn args_to_c<R>(args: Self::Args, f: impl FnOnce(&[&CStr]) -> R) -> R;
-
-    /// UNSTABLE: do not call this function.
-    ///
-    /// Converts an array of C-style strings to this event's args.
-    ///
-    /// # Panics
-    ///
-    /// If `word` or `word_eol` contains invalid UTF8.
-    #[doc(hidden)]
-    fn args_from_words(
-        word: impl Iterator<Item = &'a ::std::ffi::CStr>,
-        word_eol: impl Iterator<Item = &'a ::std::ffi::CStr>,
-    ) -> Self::Args;
 }
 
 pub(crate) mod private {
+    use std::ffi::CStr;
     use std::os::raw::c_char;
 
-    pub unsafe trait EventImpl {
+    pub unsafe trait EventImpl<'a> {
+        /// The arguments associated with this event.
+        ///
+        /// Should be the same as `<Self as Event<'a>::Args`.
+        type ArgsImpl;
+
         /// The event's name.
         ///
         /// # Safety
         ///
         /// Must point to a valid, null-terminated C-style string.
         const NAME: *const c_char;
+
+        /// Converts this event's args to C-style strings.
+        fn args_to_c<R>(args: impl Into<Self::ArgsImpl>, f: impl FnOnce(&[&CStr]) -> R) -> R;
+
+        /// Converts an array of C-style strings to this event's args.
+        ///
+        /// # Panics
+        ///
+        /// If `word` or `word_eol` contains invalid UTF8.
+        fn args_from_words<R: From<Self::ArgsImpl>>(
+            word: impl Iterator<Item = &'a ::std::ffi::CStr>,
+            word_eol: impl Iterator<Item = &'a ::std::ffi::CStr>,
+        ) -> R;
     }
 }
 
@@ -131,11 +134,6 @@ macro_rules! event {
             const FIELD_COUNT: usize = count!($($index)* $($eol_index)?);
         }
 
-        unsafe impl crate::event::private::EventImpl for $struct_name {
-            // Safety: this string is null-terminated and static
-            const NAME: *const ::std::os::raw::c_char = concat!($event_name, "\0").as_ptr().cast();
-        }
-
         impl<'a> crate::event::Event<'a> for $struct_name {
             $(
                 #[doc = ""]
@@ -150,10 +148,17 @@ macro_rules! event {
                 #[doc = "`, "]
             )?
             type Args = [&'a str; Self::FIELD_COUNT];
+        }
 
-            #[doc(hidden)]
+        unsafe impl<'a> crate::event::private::EventImpl<'a> for $struct_name {
+            type ArgsImpl = [&'a str; Self::FIELD_COUNT];
+
+            // Safety: this string is null-terminated and static
+            const NAME: *const ::std::os::raw::c_char = concat!($event_name, "\0").as_ptr().cast();
+
             #[allow(unused_variables)]
-            fn args_to_c<R>(args: Self::Args, f: impl FnOnce(&[&::std::ffi::CStr]) -> R) -> R {
+            fn args_to_c<R>(args: impl Into<Self::ArgsImpl>, f: impl FnOnce(&[&::std::ffi::CStr]) -> R) -> R {
+                let args: Self::ArgsImpl = args.into();
                 let args: [::std::borrow::Cow::<'_, ::std::ffi::CStr>; Self::FIELD_COUNT] = [
                     $(crate::ffi::StrExt::into_cstr(args[$index])),*
                     $(, crate::ffi::StrExt::into_cstr(args[$eol_index]))?
@@ -165,14 +170,13 @@ macro_rules! event {
                 f(&args)
             }
 
-            #[doc(hidden)]
             #[allow(unused_variables)]
             #[allow(unused_mut)]
-            fn args_from_words(
+            fn args_from_words<R: From<Self::ArgsImpl>>(
                 mut word: impl Iterator<Item = &'a ::std::ffi::CStr>,
                 mut word_eol: impl Iterator<Item = &'a ::std::ffi::CStr>,
-            ) -> Self::Args {
-                [
+            ) -> R {
+                let args = [
                     $(
                         word
                             .next()
@@ -215,7 +219,8 @@ macro_rules! event {
                                 )
                             })
                     )?
-                ]
+                ];
+                R::from(args)
             }
         }
     };
