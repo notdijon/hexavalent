@@ -14,7 +14,7 @@ edition = "2018"
 [dependencies]
 bitflags = { version = "1.2.1", default-features = false }
 libc = { version = "0.2.67", default-features = false }
-time = { version = "0.2.9", default-features = false }
+time = { version = "0.2.23", default-features = false }
 
 [features]
 default = []

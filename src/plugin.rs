@@ -362,7 +362,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
                 ptr::write(
                     &mut (*event_attrs).server_time_utc as *mut _,
-                    attrs.time().timestamp(),
+                    attrs.time().unix_timestamp(),
                 );
 
                 #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
