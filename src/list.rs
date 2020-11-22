@@ -9,11 +9,14 @@ use std::str::Split;
 /// and [`PluginHandle::get_list_with`](crate::PluginHandle::get_list_with).
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
-pub trait List: private::ListImpl {
+pub trait List: private::ListImpl
+where
+    Self::Elem: private::FromListElem,
+{
     /// The type of elements of the list.
     // todo with GATs, it _might_ be nice to have Elem/BorrowedElem<'a>, so that we can avoid allocation
     //  (but we'd probably have to make get_list_with unsafe due to invalidation of the string)
-    type Elem: private::FromListElem;
+    type Elem;
 }
 
 pub(crate) mod private {
