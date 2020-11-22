@@ -7,13 +7,16 @@
 /// Note that this represents a global preference, not a plugin-specific preference.
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
-pub trait Pref: private::PrefImpl {
+pub trait Pref: private::PrefImpl
+where
+    Self::Type: private::FromPrefValue,
+{
     /// The preference's type.
     ///
     /// Can be `String`, `i32`, or `bool`.
     // todo with GATs, it _might_ be nice to have Type/BorrowedType<'a>, so that we can avoid allocation
     //  (but we'd probably have to make get_pref_with unsafe due to invalidation of the string)
-    type Type: private::FromPrefValue;
+    type Type;
 }
 
 pub(crate) mod private {
