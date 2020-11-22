@@ -131,7 +131,7 @@ pub trait Plugin: Default + 'static {
     /// Use this function to perform any work that should be done when your plugin is unloaded,
     /// such as printing shutdown messages or statistics.
     ///
-    /// You do not need to call [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) in this function,
+    /// You do not need to call [`PluginHandle::unhook`] in this function,
     /// as remaining hooks are automatically removed by HexChat when your plugin finishes unloading.
     ///
     /// Analogous to [`hexchat_plugin_deinit`](https://hexchat.readthedocs.io/en/latest/plugins.html#sample-plugin).
@@ -159,10 +159,8 @@ pub trait Plugin: Default + 'static {
 
 /// Interacts with HexChat's plugin API.
 ///
-/// Cannot be constructed in user code, but is passed into
-/// [`Plugin::init`](trait.Plugin.html#tymethod.init),
-/// [`Plugin::deinit`](trait.Plugin.html#method.deinit),
-/// and hook callbacks such as [`PluginHandle::hook_command`](struct.PluginHandle.html#method.hook_command).
+/// Cannot be constructed in user code, but is passed into [`Plugin::init`], [`Plugin::deinit`],
+/// and hook callbacks such as [`PluginHandle::hook_command`].
 ///
 /// Most of HexChat's [functions](https://hexchat.readthedocs.io/en/latest/plugins.html#functions) are available as associated functions,
 /// without the `hexchat_` prefix.
@@ -217,7 +215,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 ///
 /// General functions allow printing text, running commands, creating events, and other miscellaneous operations.
 impl<'ph, P> PluginHandle<'ph, P> {
-    /// Prints text to the current [context](struct.PluginHandle.html#impl-3). Text may contain mIRC color codes and formatting.
+    /// Prints text to the current [context](crate::PluginHandle#impl-3). Text may contain mIRC color codes and formatting.
     ///
     /// Analogous to [`hexchat_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_print).
     ///
@@ -239,7 +237,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         }
     }
 
-    /// Executes a command in the current [context](struct.PluginHandle.html#impl-3) as if it were typed into HexChat's input box after a `/`.
+    /// Executes a command in the current [context](crate::PluginHandle#impl-3) as if it were typed into HexChat's input box after a `/`.
     ///
     /// Analogous to [`hexchat_command`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_command).
     ///
@@ -261,12 +259,12 @@ impl<'ph, P> PluginHandle<'ph, P> {
         }
     }
 
-    /// Emits a print event in the current [context](struct.PluginHandle.html#impl-3).
+    /// Emits a print event in the current [context](crate::PluginHandle#impl-3).
     ///
-    /// See the [`event::print`](event/print/index.html) submodule for a list of print events.
+    /// See the [`event::print`](crate::event::print) submodule for a list of print events.
     ///
     /// Note that this triggers any print hooks registered for the event, so be careful to avoid infinite recursion
-    /// when calling this function from hook callbacks such as [`PluginHandle::hook_print`](struct.PluginHandle.html#method.hook_print).
+    /// when calling this function from hook callbacks such as [`PluginHandle::hook_print`].
     ///
     /// Analogous to [`hexchat_emit_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print).
     ///
@@ -314,12 +312,12 @@ impl<'ph, P> PluginHandle<'ph, P> {
         })
     }
 
-    /// Emits a print event in the current [context](struct.PluginHandle.html#impl-3), specifying its attributes.
+    /// Emits a print event in the current [context](crate::PluginHandle#impl-3), specifying its attributes.
     ///
-    /// See the [`event::print`](event/print/index.html) submodule for a list of print events.
+    /// See the [`event::print`](crate::event::print) submodule for a list of print events.
     ///
     /// Note that this triggers any print hooks registered for the event, so be careful to avoid infinite recursion
-    /// when calling this function from hook callbacks such as [`PluginHandle::hook_print_attrs`](struct.PluginHandle.html#method.hook_print_attrs).
+    /// when calling this function from hook callbacks such as [`PluginHandle::hook_print_attrs`].
     ///
     /// Analogous to [`hexchat_emit_print_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print_attrs).
     ///
@@ -389,7 +387,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         })
     }
 
-    /// Sends channel mode changes to targets in the current [context](struct.PluginHandle.html#impl-3).
+    /// Sends channel mode changes to targets in the current [context](crate::PluginHandle#impl-3).
     ///
     /// Analogous to [`hexchat_send_modes`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_send_modes).
     ///
@@ -498,7 +496,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Strips mIRC colors and/or text attributes (bold, underline, etc.) from a string.
     ///
-    /// Behaves the same as [`PluginHandle::strip`](struct.PluginHandle.html#method.strip),
+    /// Behaves the same as [`PluginHandle::strip`],
     /// but avoids allocating a `String` to hold the stripped string.
     ///
     /// Analogous to [`hexchat_strip`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_strip).
@@ -562,11 +560,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
 /// [Getting Information](https://hexchat.readthedocs.io/en/latest/plugins.html#getting-information)
 ///
-/// Allows you get information about the current [context](struct.PluginHandle.html#impl-3) or HexChat's settings.
+/// Allows you get information about the current [context](crate::PluginHandle#impl-3) or HexChat's settings.
 impl<'ph, P> PluginHandle<'ph, P> {
-    /// Gets information based on the current [context](struct.PluginHandle.html#impl-3).
+    /// Gets information based on the current [context](crate::PluginHandle#impl-3).
     ///
-    /// See the [`info`](info/index.html) submodule for a list of info types.
+    /// See the [`info`](crate::info) submodule for a list of info types.
     ///
     /// Analogous to [`hexchat_get_info`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_info).
     ///
@@ -614,7 +612,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Gets settings information from HexChat, as available with `/set`.
     ///
-    /// See the [`pref`](pref/index.html) submodule for a list of preferences.
+    /// See the [`pref`](crate::pref) submodule for a list of preferences.
     ///
     /// Analogous to [`hexchat_get_prefs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_prefs).
     ///
@@ -673,9 +671,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
         f(Ok(value))
     }
 
-    /// Gets a list of information, possibly specific to the current [context](struct.PluginHandle.html#impl-3).
+    /// Gets a list of information, possibly specific to the current [context](crate::PluginHandle#impl-3).
     ///
-    /// See the [`list`](list/index.html) submodule for a list of lists.
+    /// See the [`list`](crate::list) submodule for a list of lists.
     ///
     /// Analogous to [`hexchat_list_get`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_list_get) and related functions.
     ///
@@ -715,11 +713,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
         )
     }
 
-    /// Gets a list of information, possibly specific to the current [context](struct.PluginHandle.html#impl-3).
+    /// Gets a list of information, possibly specific to the current [context](crate::PluginHandle#impl-3).
     ///
-    /// See the [`list`](list/index.html) submodule for a list of lists.
+    /// See the [`list`](crate::list) submodule for a list of lists.
     ///
-    /// Behaves the same as [`PluginHandle::get_list`](struct.PluginHandle.html#method.get_list),
+    /// Behaves the same as [`PluginHandle::get_list`],
     /// but avoids allocating a `Vec` to hold the list.
     ///
     /// Analogous to [`hexchat_list_get`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_list_get) and related functions.
@@ -842,7 +840,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 ///
 /// Use `Cell` to store simple `Copy` types, as in the following (working) example of a count command.
 /// Also use `Cell` when a non-`Copy` type should be moved in and out of the state without mutation,
-/// as in [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook)'s example of storing [`HookHandle`](hook/struct.HookHandle.html).
+/// as in [`PluginHandle::unhook`]'s example of storing [`HookHandle`](crate::hook::HookHandle).
 ///
 /// ```rust
 /// use std::cell::Cell;
@@ -915,10 +913,10 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
-    /// See the [impl header](struct.PluginHandle.html#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
-    /// Returns a [`HookHandle`](hook/struct.HookHandle.html) which can be passed to
-    /// [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) to unregister the hook.
+    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
+    /// [`PluginHandle::unhook`] to unregister the hook.
     ///
     /// Analogous to [`hexchat_hook_command`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_command).
     ///
@@ -999,18 +997,18 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
     /// Registers a print event hook with HexChat.
     ///
-    /// See the [`event::print`](event/print/index.html) submodule for a list of print events.
+    /// See the [`event::print`](crate::event::print) submodule for a list of print events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
-    /// See the [impl header](struct.PluginHandle.html#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
     /// _Also_ note that passing a closure as `callback` will ICE the compiler,
     /// due to `rustc` [bug #62529](https://github.com/rust-lang/rust/issues/62529).
     /// A `fn` item must be used instead, as in the example below.
     ///
-    /// Returns a [`HookHandle`](hook/struct.HookHandle.html) which can be passed to
-    /// [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) to unregister the hook.
+    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
+    /// [`PluginHandle::unhook`] to unregister the hook.
     ///
     /// Analogous to [`hexchat_hook_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print).
     ///
@@ -1087,18 +1085,18 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
     /// Registers a print event hook with HexChat, capturing the event's attributes.
     ///
-    /// See the [`event::print`](event/print/index.html) submodule for a list of print events.
+    /// See the [`event::print`](crate::event::print) submodule for a list of print events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
-    /// See the [impl header](struct.PluginHandle.html#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
     /// _Also_ note that passing a closure as `callback` will ICE the compiler,
     /// due to `rustc` [bug #62529](https://github.com/rust-lang/rust/issues/62529).
     /// A `fn` item must be used instead, as in the example below.
     ///
-    /// Returns a [`HookHandle`](hook/struct.HookHandle.html) which can be passed to
-    /// [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) to unregister the hook.
+    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
+    /// [`PluginHandle::unhook`] to unregister the hook.
     ///
     /// Analogous to [`hexchat_hook_print_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print_attrs).
     ///
@@ -1198,18 +1196,18 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
     /// Registers a server event hook with HexChat.
     ///
-    /// See the [`event::server`](event/server/index.html) submodule for a list of server events.
+    /// See the [`event::server`](crate::event::server) submodule for a list of server events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
-    /// See the [impl header](struct.PluginHandle.html#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
     /// _Also_ note that passing a closure as `callback` will ICE the compiler,
     /// due to `rustc` [bug #62529](https://github.com/rust-lang/rust/issues/62529).
     /// A `fn` item must be used instead, as in the example below.
     ///
-    /// Returns a [`HookHandle`](hook/struct.HookHandle.html) which can be passed to
-    /// [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) to unregister the hook.
+    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
+    /// [`PluginHandle::unhook`] to unregister the hook.
     ///
     /// Analogous to [`hexchat_hook_server`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_server).
     ///
@@ -1289,18 +1287,18 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
     /// Registers a server event hook with HexChat, capturing the event's attributes.
     ///
-    /// See the [`event::server`](event/server/index.html) submodule for a list of server events.
+    /// See the [`event::server`](crate::event::server) submodule for a list of server events.
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
-    /// See the [impl header](struct.PluginHandle.html#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
     /// _Also_ note that passing a closure as `callback` will ICE the compiler,
     /// due to `rustc` [bug #62529](https://github.com/rust-lang/rust/issues/62529).
     /// A `fn` item must be used instead, as in the example below.
     ///
-    /// Returns a [`HookHandle`](hook/struct.HookHandle.html) which can be passed to
-    /// [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) to unregister the hook.
+    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
+    /// [`PluginHandle::unhook`] to unregister the hook.
     ///
     /// Analogous to [`hexchat_hook_server_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_server_attrs).
     ///
@@ -1407,10 +1405,10 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
-    /// See the [impl header](struct.PluginHandle.html#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
-    /// Returns a [`HookHandle`](hook/struct.HookHandle.html) which can be passed to
-    /// [`PluginHandle::unhook`](struct.PluginHandle.html#method.unhook) to unregister the hook.
+    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
+    /// [`PluginHandle::unhook`] to unregister the hook.
     ///
     /// Analogous to [`hexchat_hook_timer`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_timer).
     ///
@@ -1500,7 +1498,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
     /// Unregisters a hook from HexChat.
     ///
-    /// Used with hook registrations functions such as [`PluginHandle::hook_command`](struct.PluginHandle.html#method.hook_command).
+    /// Used with hook registrations functions such as [`PluginHandle::hook_command`].
     ///
     /// HexChat automatically unhooks any remaining hooks after your plugin finishes unloading,
     /// so this function is only useful if you need to unhook a hook while your plugin is running.
@@ -1549,17 +1547,17 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 ///
 /// It is not always necessary to change context, as hook callbacks usually execute in a context related to the event.
 /// For example:
-/// - [`PluginHandle::hook_command`](struct.PluginHandle.html#method.hook_command) callbacks run in the context where the command was executed.
-/// - [`PluginHandle::hook_print`](struct.PluginHandle.html#method.hook_print) callbacks run in the context where the print event was emitted.
-/// - [`PluginHandle::hook_server`](struct.PluginHandle.html#method.hook_server) callbacks run in the server (but not channel) context where the server event was received.
+/// - [`PluginHandle::hook_command`] callbacks run in the context where the command was executed.
+/// - [`PluginHandle::hook_print`] callbacks run in the context where the print event was emitted.
+/// - [`PluginHandle::hook_server`] callbacks run in the server (but not channel) context where the server event was received.
 impl<'ph, P> PluginHandle<'ph, P> {
     /// Finds a server/channel context based on various criteria.
     ///
-    /// See [`Context`](context/enum.Context.html) for available criteria.
+    /// See [`Context`](crate::context::Context) for available criteria.
     /// These include: the currently-focused tab, a specified channel, or the frontmost tab in a server.
     ///
-    /// Returns a [`ContextHandle`](context/struct.ContextHandle.html) which can be passed to
-    /// [`PluginHandle::with_context`](struct.PluginHandle.html#method.with_context) to enter the context.
+    /// Returns a [`ContextHandle`](crate::context::ContextHandle) which can be passed to
+    /// [`PluginHandle::with_context`] to enter the context.
     ///
     /// Analogous to [`hexchat_find_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_find_context).
     ///
@@ -1604,7 +1602,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Executes a function in a different server/channel context.
     ///
-    /// Used with [`PluginHandle::find_context`](struct.PluginHandle.html#method.find_context).
+    /// Used with [`PluginHandle::find_context`].
     ///
     /// Analogous to [`hexchat_get_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_context) and
     /// [`hexchat_set_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_set_context).
@@ -1712,7 +1710,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// Note that int preferences can be successfully loaded as strings.
     ///
-    /// Behaves the same as [`PluginHandle::pluginpref_get_str`](struct.PluginHandle.html#method.pluginpref_get_str),
+    /// Behaves the same as [`PluginHandle::pluginpref_get_str`],
     /// but avoids allocating a `String` to hold the preference value.
     ///
     /// Analogous to [`hexchat_pluginpref_get_str`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_get_str).
@@ -1876,7 +1874,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// Note that the total length of all preference names is limited to about 4095 bytes.
     ///
-    /// Behaves the same as [`PluginHandle::pluginpref_list`](struct.PluginHandle.html#method.pluginpref_list),
+    /// Behaves the same as [`PluginHandle::pluginpref_list`],
     /// but avoids allocating a `Vec` and `String`s to hold each preference name.
     ///
     /// Analogous to [`hexchat_pluginpref_list`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list).
@@ -1942,10 +1940,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Adds a fake plugin to the plugin GUI.
     ///
     /// Only useful if your plugin loads other plugins.
-    /// Do not call this function with the same arguments you pass to [`export_plugin`](macro.export_plugin.html).
+    /// Do not call this function with the same arguments you pass to [`export_plugin`].
     ///
-    /// Returns a [`FakePluginHandle`](gui/struct.FakePluginHandle.html) which can be passed to
-    /// [`PluginHandle::plugingui_remove`](struct.PluginHandle.html#method.plugingui_remove) to remove the fake plugin.
+    /// Returns a [`FakePluginHandle`](crate::gui::FakePluginHandle) which can be passed to
+    /// [`PluginHandle::plugingui_remove`] to remove the fake plugin.
     ///
     /// Analogous to [`hexchat_plugingui_add`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_plugingui_add).
     pub fn plugingui_add(
@@ -1981,7 +1979,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
     /// Removes a fake plugin from the plugin GUI.
     ///
-    /// Used with [`PluginHandle::plugingui_add`](struct.PluginHandle.html#method.plugingui_add).
+    /// Used with [`PluginHandle::plugingui_add`].
     ///
     /// Analogous to [`hexchat_plugingui_remove`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_plugingui_remove).
     pub fn plugingui_remove(self, gui: FakePluginHandle) {

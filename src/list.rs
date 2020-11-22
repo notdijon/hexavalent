@@ -5,8 +5,8 @@ use std::str::Split;
 
 /// A list that can be retrieved from HexChat.
 ///
-/// Used with [`PluginHandle::get_list`](../struct.PluginHandle.html#method.get_list)
-/// and [`PluginHandle::get_list_with`](../struct.PluginHandle.html#method.get_list_with).
+/// Used with [`PluginHandle::get_list`](crate::PluginHandle::get_list)
+/// and [`PluginHandle::get_list_with`](crate::PluginHandle::get_list_with).
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
 pub trait List: private::ListImpl {
@@ -67,7 +67,7 @@ macro_rules! list {
 
         #[doc = $elem_desc]
         ///
-        /// See the [`List`](trait.List.html) trait for usage.
+        /// See the [`List`](crate::list::List) trait for usage.
         #[derive(Debug, Clone)]
         pub struct $elem_ty {
             $(

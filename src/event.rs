@@ -7,9 +7,9 @@ use time::OffsetDateTime;
 
 /// Attributes associated with an event.
 ///
-/// Used with [`PluginHandle::emit_print_attrs`](../struct.PluginHandle.html#method.emit_print_attrs),
-/// [`PluginHandle::hook_print_attrs`](../struct.PluginHandle.html#method.hook_print_attrs),
-/// and [`PluginHandle::hook_server_attrs`](../struct.PluginHandle.html#method.hook_server_attrs).
+/// Used with [`PluginHandle::emit_print_attrs`](crate::PluginHandle::emit_print_attrs),
+/// [`PluginHandle::hook_print_attrs`](crate::PluginHandle::hook_print_attrs),
+/// and [`PluginHandle::hook_server_attrs`](crate::PluginHandle::hook_server_attrs).
 ///
 /// Analogous to [`hexchat_event_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print_attrs).
 #[derive(Debug, Copy, Clone)]
@@ -48,7 +48,7 @@ impl<'a> EventAttrs<'a> {
 
 /// Trait implemented by all event types.
 ///
-/// See the [`PrintEvent`](print/trait.PrintEvent.html) and [`ServerEvent`](server/trait.ServerEvent.html) traits for usage.
+/// See the [`PrintEvent`](print::PrintEvent) and [`ServerEvent`](server::ServerEvent) traits for usage.
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
 pub trait Event<'a>: private::EventImpl {
