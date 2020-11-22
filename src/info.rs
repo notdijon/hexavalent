@@ -1,8 +1,8 @@
 //! Context info.
 
-/// Info about the current [context](../struct.PluginHandle.html#impl-3).
+/// Info about the current [context](crate::PluginHandle#impl-3).
 ///
-/// Used with [`PluginHandle::get_info`](../struct.PluginHandle.html#method.get_info).
+/// Used with [`PluginHandle::get_info`](crate::PluginHandle::get_info).
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
 pub trait Info: private::InfoImpl {

@@ -31,7 +31,7 @@ list!(
 bitflags! {
     /// Flags related to channel state.
     ///
-    /// Part of [`Channel`](struct.Channel.html).
+    /// Part of [`Channel`].
     pub struct ChannelFlags: i32 {
         /// The client is connected to the channel.
         const CONNECTED = 1;
@@ -78,7 +78,7 @@ impl super::FromListElemField<i32> for ChannelFlags {
 
 /// The type of a channel.
 ///
-/// Part of [`Channel`](struct.Channel.html).
+/// Part of [`Channel`].
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone)]
 pub enum ChannelType {
@@ -154,7 +154,7 @@ list!(
 bitflags! {
     /// Flags related to ignore state.
     ///
-    /// Part of [`Ignore`](struct.Ignore.html).
+    /// Part of [`Ignore`].
     pub struct IgnoreFlags: i32 {
         #[allow(clippy::identity_op)]
         /// Private messages are ignored.
@@ -185,7 +185,7 @@ impl super::FromListElemField<i32> for IgnoreFlags {
 list!(
     Notifies,
     "notify",
-    "List of people on notify in the current server [context](../struct.PluginHandle.html#impl-3).",
+    "List of people on notify in the current server [context](crate::PluginHandle#impl-3).",
     "A nick on notify.",
     Notify {
         ["networks", "Networks to which this nick applies.", string] networks: super::SplitByCommas => impl Iterator<Item = &str>,
@@ -200,7 +200,7 @@ list!(
 bitflags! {
     /// Flags related to notify state.
     ///
-    /// Part of [`Notify`](struct.Notify.html).
+    /// Part of [`Notify`].
     pub struct NotifyFlags: i32 {
         #[allow(clippy::identity_op)]
         /// The nick is online.
@@ -217,7 +217,7 @@ impl super::FromListElemField<i32> for NotifyFlags {
 list!(
     Users,
     "users",
-    "List of users in the current [context](../struct.PluginHandle.html#impl-3).",
+    "List of users in the current [context](crate::PluginHandle#impl-3).",
     "A user.",
     User {
         ["account", "Account name. (HexChat 2.9.6+)", string] account: Option<String> => Option<&str>,

@@ -6,10 +6,10 @@ use crate::event::Event;
 
 /// Trait implemented by all print event types.
 ///
-/// Used with [`PluginHandle::emit_print`](../../struct.PluginHandle.html#method.emit_print),
-/// [`PluginHandle::emit_print_attrs`](../../struct.PluginHandle.html#method.emit_print_attrs),
-/// [`PluginHandle::hook_print`](../../struct.PluginHandle.html#method.hook_print),
-/// and [`PluginHandle::hook_print_attrs`](../../struct.PluginHandle.html#method.hook_print_attrs).
+/// Used with [`PluginHandle::emit_print`](crate::PluginHandle::emit_print),
+/// [`PluginHandle::emit_print_attrs`](crate::PluginHandle::emit_print_attrs),
+/// [`PluginHandle::hook_print`](crate::PluginHandle::hook_print),
+/// and [`PluginHandle::hook_print_attrs`](crate::PluginHandle::hook_print_attrs).
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
 ///
@@ -72,7 +72,7 @@ pub use impls::*;
 
 /// Special print event types which can only be hooked, not emitted.
 ///
-/// Attempting to emit these events with emission functions such as [`PluginHandle::emit_print`](../../../struct.PluginHandle.html#method.emit_print) will always fail.
+/// Attempting to emit these events with emission functions such as [`PluginHandle::emit_print`](crate::PluginHandle::emit_print) will always fail.
 ///
 /// Analogous to the special print events documented for [`hexchat_hook_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print).
 pub mod special;

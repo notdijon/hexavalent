@@ -7,7 +7,7 @@ use crate::ffi::hexchat_context;
 
 /// Criteria used to find a server/channel context.
 ///
-/// Used with [`PluginHandle::find_context`](../struct.PluginHandle.html#method.find_context).
+/// Used with [`PluginHandle::find_context`](crate::PluginHandle::find_context).
 ///
 /// Analogous to arguments passed to [`hexchat_find_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_find_context).
 #[non_exhaustive]
@@ -43,9 +43,9 @@ pub enum Context<'a> {
 /// A handle to a server/channel context in HexChat.
 ///
 /// Cannot be constructed in user code, but is returned from
-/// [`PluginHandle::find_context`](../struct.PluginHandle.html#method.find_context).
+/// [`PluginHandle::find_context`](crate::PluginHandle::find_context).
 ///
-/// Can be passed to [`PluginHandle::with_context`](../struct.PluginHandle.html#method.with_context) to run code in the context.
+/// Can be passed to [`PluginHandle::with_context`](crate::PluginHandle::with_context) to run code in the context.
 #[derive(Debug, Copy, Clone)]
 #[must_use = "context handles do nothing on their own, you must call `with_context` yourself"]
 pub struct ContextHandle<'a> {

@@ -2,7 +2,7 @@
 
 /// The value of a HexChat setting.
 ///
-/// Used with [`PluginHandle::get_pref`](../struct.PluginHandle.html#method.get_pref).
+/// Used with [`PluginHandle::get_pref`](crate::PluginHandle::get_pref).
 ///
 /// Note that this represents a global preference, not a plugin-specific preference.
 ///

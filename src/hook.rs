@@ -10,7 +10,7 @@ use crate::ffi::{
 
 /// Determines the order in which hook callbacks are called.
 ///
-/// Used with hook registration functions such as [`PluginHandle::hook_command`](../struct.PluginHandle.html#method.hook_command).
+/// Used with hook registration functions such as [`PluginHandle::hook_command`](crate::PluginHandle::hook_command).
 ///
 /// Unless you need to intercept events in a certain order, use  `Priority::Normal`.
 #[non_exhaustive]
@@ -36,7 +36,7 @@ pub enum Priority {
 
 /// Whether the event that triggered a hook callback should be "eaten".
 ///
-/// Used with hook registration functions such as [`PluginHandle::hook_command`](../struct.PluginHandle.html#method.hook_command).
+/// Used with hook registration functions such as [`PluginHandle::hook_command`](crate::PluginHandle::hook_command).
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone)]
 pub enum Eat {
@@ -60,7 +60,7 @@ pub enum Eat {
 
 /// Whether a timer callback should continue running.
 ///
-/// Used with [`PluginHandle::hook_timer`](../struct.PluginHandle.html#method.hook_timer).
+/// Used with [`PluginHandle::hook_timer`](crate::PluginHandle::hook_timer).
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone)]
 pub enum Timer {
@@ -74,9 +74,9 @@ pub enum Timer {
 /// A handle to a hook registered with HexChat.
 ///
 /// Cannot be constructed in user code, but is returned from hook registration functions such as
-/// [`PluginHandle::hook_command`](../struct.PluginHandle.html#method.hook_command).
+/// [`PluginHandle::hook_command`](crate::PluginHandle::hook_command).
 ///
-/// Can be passed to [`PluginHandle::unhook`](../struct.PluginHandle.html#method.unhook) to unregister the hook.
+/// Can be passed to [`PluginHandle::unhook`](crate::PluginHandle::unhook) to unregister the hook.
 ///
 /// HexChat automatically unhooks any remaining hooks after your plugin finishes unloading,
 /// so this type is only useful if you need to unhook a hook while your plugin is running.

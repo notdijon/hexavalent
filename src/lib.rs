@@ -3,8 +3,8 @@
 //! To create your plugin:
 //! - Make a library crate with [`crate-type = "cdylib"`](https://doc.rust-lang.org/cargo/reference/manifest.html#building-dynamic-or-static-libraries).
 //! - Define a type, e.g. `struct MyPlugin`, to hold any state your plugin needs.
-//! - Implement the [`Plugin`](trait.Plugin.html) trait for `MyPlugin`.
-//! - Call [`export_plugin`](macro.export_plugin.html) with the type `MyPlugin`, its name, description, and version.
+//! - Implement the [`Plugin`] trait for `MyPlugin`.
+//! - Call [`export_plugin`] with the type `MyPlugin`, its name, description, and version.
 //!
 //! On Windows, it is recommended to add `-C target-feature=+crt-static` to your `RUSTFLAGS`,
 //! for example in [`<project root>/.cargo/config`](https://doc.rust-lang.org/cargo/reference/config.html).
@@ -123,9 +123,9 @@ pub use plugin::{Plugin, PluginHandle};
 
 /// Defines the necessary exports for HexChat to load your plugin.
 ///
-/// Do not define a `main` function; initialization should be performed in your plugin's [`Plugin::init`](trait.Plugin.html#tymethod.init) function.
+/// Do not define a `main` function; initialization should be performed in your plugin's [`Plugin::init`] function.
 ///
-/// The type passed to `export_plugin` must implement [`Plugin`](trait.Plugin.html).
+/// The type passed to `export_plugin` must implement [`Plugin`].
 ///
 /// # Examples
 ///

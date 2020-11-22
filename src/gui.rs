@@ -6,9 +6,9 @@ use std::ptr::NonNull;
 /// A handle to a fake plugin in HexChat.
 ///
 /// Cannot be constructed in user code, but is returned from
-/// [`PluginHandle::plugingui_add`](../struct.PluginHandle.html#method.plugingui_add).
+/// [`PluginHandle::plugingui_add`](crate::PluginHandle::plugingui_add).
 ///
-/// Can be passed to [`PluginHandle::plugingui_remove`](../struct.PluginHandle.html#method.plugingui_remove)
+/// Can be passed to [`PluginHandle::plugingui_remove`](crate::PluginHandle::plugingui_remove)
 /// to remove the fake plugin.
 #[must_use = "fake plugins are not removed automatically, you must call `plugingui_remove` yourself"]
 #[derive(Debug)]

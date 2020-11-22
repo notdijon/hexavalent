@@ -4,8 +4,8 @@ use crate::event::Event;
 
 /// Trait implemented by all server event types.
 ///
-/// Used with [`PluginHandle::hook_server`](../../struct.PluginHandle.html#method.hook_server)
-/// and [`PluginHandle::hook_server_attrs`](../../struct.PluginHandle.html#method.hook_server_attrs).
+/// Used with [`PluginHandle::hook_server`](crate::PluginHandle::hook_server)
+/// and [`PluginHandle::hook_server_attrs`](crate::PluginHandle::hook_server_attrs).
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
 ///

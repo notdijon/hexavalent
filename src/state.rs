@@ -45,7 +45,7 @@ pub(crate) fn catch_and_log_unwind<R>(
                 ctxt_msg, panic_msg
             );
 
-            let plugin_handle = LAST_RESORT_PLUGIN_HANDLE.load(Ordering::SeqCst);
+            let plugin_handle = LAST_RESORT_PLUGIN_HANDLE.load(Ordering::Relaxed);
             if plugin_handle.is_null() {
                 eprintln!("FATAL: `hexavalent` cannot find a plugin context");
                 abort_process_due_to_panic_without_plugin_handle()
@@ -109,12 +109,12 @@ static PLUGIN: ExtSync<Option<GlobalPlugin>> = ExtSync(UnsafeCell::new(None));
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
 pub(crate) unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
     result_to_int(catch_and_log_unwind("init", || {
-        LAST_RESORT_PLUGIN_HANDLE.store(plugin_handle, Ordering::SeqCst);
+        LAST_RESORT_PLUGIN_HANDLE.store(plugin_handle, Ordering::Relaxed);
 
         {
-            let replaced_state = STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::SeqCst);
+            let replaced_state = STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::Relaxed);
             assert_eq!(replaced_state, NO_READERS, "initialized while running");
-            defer! { STATE.store(NO_READERS, Ordering::SeqCst) };
+            defer! { STATE.store(NO_READERS, Ordering::Relaxed) };
 
             // Safety: STATE guarantees unique access to handles
             *PLUGIN.get() = Some(GlobalPlugin {
@@ -140,15 +140,15 @@ pub(crate) unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexcha
         with_plugin_state(|plugin: &P, ph| plugin.deinit(ph));
 
         {
-            let replaced_state = STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::SeqCst);
+            let replaced_state = STATE.compare_and_swap(NO_READERS, LOCKED, Ordering::Relaxed);
             assert_eq!(replaced_state, NO_READERS, "deinitialized while running");
-            defer! { STATE.store(NO_READERS, Ordering::SeqCst) };
+            defer! { STATE.store(NO_READERS, Ordering::Relaxed) };
 
             // Safety: STATE guarantees unique access to handles
             *PLUGIN.get() = None;
         }
 
-        LAST_RESORT_PLUGIN_HANDLE.store(ptr::null_mut(), Ordering::SeqCst);
+        LAST_RESORT_PLUGIN_HANDLE.store(ptr::null_mut(), Ordering::Relaxed);
     }))
 }
 
@@ -166,10 +166,13 @@ pub(crate) fn with_plugin_state<P: 'static, R>(f: impl FnOnce(&P, PluginHandle<'
     // but we expect there to be only one thread, so panic instead
     let old_state = STATE.load(Ordering::Relaxed);
     assert_ne!(old_state, LOCKED, "plugin invoked while (un)loading");
-    let replaced_state = STATE.compare_and_swap(old_state, old_state + 1, Ordering::SeqCst);
+    let replaced_state = STATE.compare_and_swap(old_state, old_state + 1, Ordering::Relaxed);
     assert_ne!(replaced_state, LOCKED, "plugin invoked while (un)loading");
     assert_eq!(replaced_state, old_state, "plugin invoked concurrently (?)");
-    defer! { STATE.fetch_sub(1, Ordering::SeqCst) };
+    defer! {{
+        let replaced_state = STATE.compare_and_swap(old_state + 1, old_state, Ordering::Relaxed);
+        assert_eq!(replaced_state, old_state + 1, "plugin invoked concurrently (?)");
+    }}
 
     // Safety: STATE guarantees that there are only readers active
     let global_plugin = unsafe {
