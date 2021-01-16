@@ -29,6 +29,7 @@ pub(crate) mod private {
         const NAME: *const c_char;
     }
 
+    #[allow(unreachable_pub)]
     pub trait FromInfoValue: Sized {
         fn from_info_value(info: Option<&str>) -> Self;
     }

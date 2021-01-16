@@ -33,6 +33,7 @@ pub(crate) mod private {
         const NAME: *const c_char;
     }
 
+    #[allow(unreachable_pub)]
     pub trait FromListElem: Sized {
         fn from_list_elem(elem: ListElem<'_>) -> Self;
     }

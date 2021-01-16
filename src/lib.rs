@@ -90,6 +90,7 @@
 //! In debug mode (specifically, when `debug_assertions` is enabled), the current thread ID is checked every time the plugin is invoked,
 //! which can help detect misbehavior.
 
+#![allow(clippy::result_unit_err)]
 #![warn(
     missing_debug_implementations,
     missing_docs,
