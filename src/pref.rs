@@ -31,6 +31,7 @@ pub(crate) mod private {
         const NAME: *const c_char;
     }
 
+    #[allow(unreachable_pub)]
     #[derive(Debug)]
     pub enum PrefValue<'a> {
         Str(&'a str),
@@ -38,6 +39,7 @@ pub(crate) mod private {
         Bool(bool),
     }
 
+    #[allow(unreachable_pub)]
     pub trait FromPrefValue: Sized {
         fn from_pref_value(pref: PrefValue<'_>) -> Result<Self, ()>;
     }
