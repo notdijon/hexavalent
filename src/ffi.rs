@@ -96,7 +96,7 @@ pub(crate) unsafe fn word_to_iter<'a>(
             while n > 0 {
                 let elem = unsafe { *self.word };
                 if elem.is_null() {
-                    // nothing
+                    break;
                 } else {
                     // Safety: elem is not null, so there is at least one more element in the array (possibly null)
                     self.word = unsafe { self.word.add(1) };
