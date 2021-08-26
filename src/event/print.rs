@@ -30,7 +30,6 @@ use crate::event::Event;
 ///
 /// ```rust
 /// use hexavalent::PluginHandle;
-/// use hexavalent::event::Event;
 /// use hexavalent::event::print::ChannelMessage;
 /// use hexavalent::hook::{Eat, Priority};
 ///
@@ -38,11 +37,7 @@ use crate::event::Event;
 ///     ph.hook_print(ChannelMessage, Priority::Normal, message_cb);
 /// }
 ///
-/// fn message_cb<P>(
-///     plugin: &P,
-///     ph: PluginHandle<'_, P>,
-///     args: <ChannelMessage as Event<'_>>::Args,
-/// ) -> Eat {
+/// fn message_cb<P>(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; 4]) -> Eat {
 ///     let [nick, text, mode, ident] = args;
 ///     ph.print(&format!(
 ///         "Message from {} (with mode '{}', ident '{}'): {}\0",

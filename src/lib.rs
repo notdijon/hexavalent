@@ -19,7 +19,6 @@
 //! ```rust
 //! use std::cell::Cell;
 //! use hexavalent::{Plugin, PluginHandle, export_plugin};
-//! use hexavalent::event::Event;
 //! use hexavalent::event::print::Join;
 //! use hexavalent::hook::{Eat, Priority};
 //!
@@ -48,7 +47,7 @@
 //!         Eat::All
 //!     }
 //!
-//!     fn join_cb(&self, ph: PluginHandle<'_, Self>, args: <Join as Event<'_>>::Args) -> Eat {
+//!     fn join_cb(&self, ph: PluginHandle<'_, Self>, args: [&str; 4]) -> Eat {
 //!         let [nick, _channel, _host, _account] = args;
 //!         if self.enabled.get() {
 //!             // op ANYONE who joins
