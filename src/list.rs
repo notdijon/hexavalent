@@ -198,7 +198,7 @@ impl<'a, T: Copy> ProjectListElemField<'a, T> for T {
 
 impl<'a> ProjectListElemField<'a, &'a str> for String {
     fn project_list_elem_field(&self) -> &str {
-        &self
+        self
     }
 }
 
