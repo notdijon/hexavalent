@@ -38,7 +38,6 @@ use crate::strip::{MircColors, TextAttrs};
 /// use std::cell::Cell;
 /// use std::time::SystemTime;
 /// use hexavalent::{Plugin, PluginHandle};
-/// use hexavalent::event::{Event, EventAttrs};
 /// use hexavalent::event::print::ChannelMessage;
 /// use hexavalent::hook::{Eat, Priority};
 ///
@@ -62,7 +61,7 @@ use crate::strip::{MircColors, TextAttrs};
 ///     fn message_cb(
 ///         &self,
 ///         ph: PluginHandle<'_, Self>,
-///         [_, text, _, _]: <ChannelMessage as Event<'_>>::Args,
+///         [_, text, _, _]: [&str; 4],
 ///     ) -> Eat {
 ///         self.messages.set(self.messages.get() + 1);
 ///         self.characters.set(self.characters.get() + text.chars().count());
@@ -1003,10 +1002,6 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
-    /// _Also_ note that passing a closure as `callback` will ICE the compiler,
-    /// due to `rustc` [bug #62529](https://github.com/rust-lang/rust/issues/62529).
-    /// A `fn` item must be used instead, as in the example below.
-    ///
     /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
     /// [`PluginHandle::unhook`] to unregister the hook.
     ///
@@ -1016,24 +1011,17 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::event::Event;
     /// use hexavalent::event::print::YouPartWithReason;
     /// use hexavalent::hook::{Eat, Priority};
     ///
     /// struct MyPlugin;
     ///
     /// fn hook_you_part(ph: PluginHandle<'_, MyPlugin>) {
-    ///     ph.hook_print(YouPartWithReason, Priority::Normal, you_part_cb);
-    /// }
-    ///
-    /// fn you_part_cb(
-    ///     plugin: &MyPlugin,
-    ///     ph: PluginHandle<'_, MyPlugin>,
-    ///     args: <YouPartWithReason as Event<'_>>::Args
-    /// ) -> Eat {
-    ///     let [your_nick, your_host, channel, reason] = args;
-    ///     ph.print(&format!("You left channel {}: {}.", channel, reason));
-    ///     Eat::HexChat
+    ///     ph.hook_print(YouPartWithReason, Priority::Normal, |plugin, ph, args| {
+    ///         let [your_nick, your_host, channel, reason] = args;
+    ///         ph.print(&format!("You left channel {}: {}.", channel, reason));
+    ///         Eat::HexChat
+    ///     });
     /// }
     /// ```
     pub fn hook_print<E: PrintEvent>(
@@ -1091,10 +1079,6 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
-    /// _Also_ note that passing a closure as `callback` will ICE the compiler,
-    /// due to `rustc` [bug #62529](https://github.com/rust-lang/rust/issues/62529).
-    /// A `fn` item must be used instead, as in the example below.
-    ///
     /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
     /// [`PluginHandle::unhook`] to unregister the hook.
     ///
@@ -1104,25 +1088,17 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::event::{Event, EventAttrs};
     /// use hexavalent::event::print::YouPartWithReason;
     /// use hexavalent::hook::{Eat, Priority};
     ///
     /// struct MyPlugin;
     ///
     /// fn hook_you_part(ph: PluginHandle<'_, MyPlugin>) {
-    ///     ph.hook_print_attrs(YouPartWithReason, Priority::Normal, you_part_cb);
-    /// }
-    ///
-    /// fn you_part_cb(
-    ///     plugin: &MyPlugin,
-    ///     ph: PluginHandle<'_, MyPlugin>,
-    ///     attrs: EventAttrs,
-    ///     args: <YouPartWithReason as Event<'_>>::Args
-    /// ) -> Eat {
-    ///     let [your_nick, your_host, channel, reason] = args;
-    ///     ph.print(&format!("You left channel {} at {}: {}.", channel, attrs.time(), reason));
-    ///     Eat::HexChat
+    ///     ph.hook_print_attrs(YouPartWithReason, Priority::Normal, |plugin, ph, attrs, args| {
+    ///         let [your_nick, your_host, channel, reason] = args;
+    ///         ph.print(&format!("You left channel {} at {}: {}.", channel, attrs.time(), reason));
+    ///         Eat::HexChat
+    ///     });
     /// }
     /// ```
     pub fn hook_print_attrs<E: PrintEvent>(
@@ -1202,10 +1178,6 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
-    /// _Also_ note that passing a closure as `callback` will ICE the compiler,
-    /// due to `rustc` [bug #62529](https://github.com/rust-lang/rust/issues/62529).
-    /// A `fn` item must be used instead, as in the example below.
-    ///
     /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
     /// [`PluginHandle::unhook`] to unregister the hook.
     ///
@@ -1215,24 +1187,17 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::event::Event;
     /// use hexavalent::event::server::Part;
     /// use hexavalent::hook::{Eat, Priority};
     ///
     /// struct MyPlugin;
     ///
     /// fn hook_part(ph: PluginHandle<'_, MyPlugin>) {
-    ///     ph.hook_server(Part, Priority::Normal, part_cb);
-    /// }
-    ///
-    /// fn part_cb(
-    ///     plugin: &MyPlugin,
-    ///     ph: PluginHandle<'_, MyPlugin>,
-    ///     args: <Part as Event<'_>>::Args
-    /// ) -> Eat {
-    ///     let [sender, _, channel, reason] = args;
-    ///     ph.print(&format!("{} left channel {}: {}.", sender, channel, reason));
-    ///     Eat::None
+    ///     ph.hook_server(Part, Priority::Normal, |plugin, ph, args| {
+    ///         let [sender, _, channel, reason] = args;
+    ///         ph.print(&format!("{} left channel {}: {}.", sender, channel, reason));
+    ///         Eat::None
+    ///     });
     /// }
     /// ```
     pub fn hook_server<E: ServerEvent>(
@@ -1293,10 +1258,6 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
-    /// _Also_ note that passing a closure as `callback` will ICE the compiler,
-    /// due to `rustc` [bug #62529](https://github.com/rust-lang/rust/issues/62529).
-    /// A `fn` item must be used instead, as in the example below.
-    ///
     /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
     /// [`PluginHandle::unhook`] to unregister the hook.
     ///
@@ -1306,25 +1267,17 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
-    /// use hexavalent::event::{Event, EventAttrs};
     /// use hexavalent::event::server::Part;
     /// use hexavalent::hook::{Eat, Priority};
     ///
     /// struct MyPlugin;
     ///
     /// fn hook_part(ph: PluginHandle<'_, MyPlugin>) {
-    ///     ph.hook_server_attrs(Part, Priority::Normal, part_cb);
-    /// }
-    ///
-    /// fn part_cb(
-    ///     plugin: &MyPlugin,
-    ///     ph: PluginHandle<'_, MyPlugin>,
-    ///     attrs: EventAttrs<'_>,
-    ///     args: <Part as Event<'_>>::Args
-    /// ) -> Eat {
-    ///     let [sender, _, channel, reason] = args;
-    ///     ph.print(&format!("{} left channel {} at {}: {}.", sender, channel, attrs.time(), reason));
-    ///     Eat::None
+    ///     ph.hook_server_attrs(Part, Priority::Normal, |plugin, ph, attrs, args| {
+    ///         let [sender, _, channel, reason] = args;
+    ///         ph.print(&format!("{} left channel {} at {}: {}.", sender, channel, attrs.time(), reason));
+    ///         Eat::None
+    ///     });
     /// }
     /// ```
     pub fn hook_server_attrs<E: ServerEvent>(

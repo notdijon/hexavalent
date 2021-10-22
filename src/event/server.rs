@@ -15,7 +15,6 @@ use crate::event::Event;
 ///
 /// ```rust
 /// use hexavalent::PluginHandle;
-/// use hexavalent::event::Event;
 /// use hexavalent::event::server::Privmsg;
 /// use hexavalent::hook::{Eat, Priority};
 ///
@@ -23,11 +22,7 @@ use crate::event::Event;
 ///     ph.hook_server(Privmsg, Priority::Normal, privmsg_cb);
 /// }
 ///
-/// fn privmsg_cb<P>(
-///     plugin: &P,
-///     ph: PluginHandle<'_, P>,
-///     args: <Privmsg as Event<'_>>::Args,
-/// ) -> Eat {
+/// fn privmsg_cb<P>(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; 4]) -> Eat {
 ///     let [sender, _, target, text] = args;
 ///     ph.print(&format!(
 ///         "Message from {} to {}: {}\0",
