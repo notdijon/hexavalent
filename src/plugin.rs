@@ -181,7 +181,7 @@ pub trait Plugin: Default + 'static {
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct PluginHandle<'ph, P> {
+pub struct PluginHandle<'ph, P: 'static> {
     /// Always points to a valid instance of `hexchat_plugin`.
     handle: *mut hexchat_plugin,
     _lifetime: PhantomData<&'ph hexchat_plugin>,
@@ -899,7 +899,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 /// }
 /// ```
 ///
-impl<'ph, P: 'static> PluginHandle<'ph, P> {
+impl<'ph, P> PluginHandle<'ph, P> {
     /// Registers a command hook with HexChat.
     ///
     /// The command is usable by typing `/command <words...>`.
