@@ -67,6 +67,9 @@ impl<'a> StrExt for &'a str {
 pub(crate) unsafe fn word_to_iter<'a>(
     word: &'a *mut *mut c_char,
 ) -> impl Iterator<Item = &'a CStr> {
+    // make it obvious that this is a non-raw-pointer deref
+    let word: *mut *mut c_char = *word;
+
     // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
     // Safety: first index is reserved, per documentation
     let word = word.add(1);
