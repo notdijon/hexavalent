@@ -159,8 +159,7 @@ pub trait Plugin: Default + 'static {
 
 /// Interacts with HexChat's plugin API.
 ///
-/// Cannot be constructed in user code, but is passed into [`Plugin::init`], [`Plugin::deinit`],
-/// and hook callbacks such as [`PluginHandle::hook_command`].
+/// Passed into [`Plugin::init`], [`Plugin::deinit`], and hook callbacks such as [`PluginHandle::hook_command`].
 ///
 /// Most of HexChat's [functions](https://hexchat.readthedocs.io/en/latest/plugins.html#functions) are available as associated functions,
 /// without the `hexchat_` prefix.

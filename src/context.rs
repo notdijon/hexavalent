@@ -42,8 +42,7 @@ pub enum Context<'a> {
 
 /// A handle to a server/channel context in HexChat.
 ///
-/// Cannot be constructed in user code, but is returned from
-/// [`PluginHandle::find_context`](crate::PluginHandle::find_context).
+/// Returned from [`PluginHandle::find_context`](crate::PluginHandle::find_context).
 ///
 /// Should be passed to [`PluginHandle::with_context`](crate::PluginHandle::with_context) to run code in the context.
 #[derive(Debug, Copy, Clone)]
