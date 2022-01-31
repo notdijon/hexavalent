@@ -29,7 +29,7 @@ use crate::mode::Sign;
 use crate::pref::private::{FromPrefValue, PrefValue};
 use crate::pref::Pref;
 use crate::state::{catch_and_log_unwind, with_plugin_state};
-use crate::strip::{MircColors, TextAttrs};
+use crate::strip::{MircColors, StrippedStr, TextAttrs};
 
 /// Must be implemented by all HexChat plugins.
 ///
@@ -501,48 +501,18 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     let orig = "\x0312Blue\x03 \x02Bold!\x02";
     ///
     ///     let strip_all = ph.strip(orig, MircColors::Remove, TextAttrs::Remove);
-    ///     assert_eq!(strip_all.unwrap(), "Blue Bold!");
+    ///     assert_eq!(strip_all.unwrap().as_ref(), "Blue Bold!");
     ///
     ///     let strip_colors = ph.strip(orig, MircColors::Remove, TextAttrs::Keep);
-    ///     assert_eq!(strip_colors.unwrap(), "Blue \x02Bold!\x02");
+    ///     assert_eq!(strip_colors.unwrap().as_ref(), "Blue \x02Bold!\x02");
     /// }
     /// ```
-    pub fn strip(self, str: &str, mirc: MircColors, attrs: TextAttrs) -> Result<String, ()> {
-        self.strip_with(str, mirc, attrs, |s| s.map(ToOwned::to_owned))
-    }
-
-    /// Strips mIRC colors and/or text attributes (bold, underline, etc.) from a string.
-    ///
-    /// Behaves the same as [`PluginHandle::strip`],
-    /// but avoids allocating a `String` to hold the stripped string.
-    ///
-    /// Analogous to [`hexchat_strip`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_strip).
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use hexavalent::PluginHandle;
-    /// use hexavalent::strip::{MircColors, TextAttrs};
-    ///
-    /// fn strip_example<P>(ph: PluginHandle<'_, P>) {
-    ///     let orig = "\x0312Blue\x03 \x02Bold!\x02";
-    ///
-    ///     ph.strip_with(orig, MircColors::Remove, TextAttrs::Remove, |strip_all| {
-    ///         assert_eq!(strip_all, Ok("Blue Bold!"));
-    ///     });
-    ///
-    ///     ph.strip_with(orig, MircColors::Remove, TextAttrs::Keep, |strip_colors| {
-    ///         assert_eq!(strip_colors, Ok("Blue \x02Bold!\x02"));
-    ///     });
-    /// }
-    /// ```
-    pub fn strip_with<R>(
+    pub fn strip(
         self,
         str: &str,
         mirc: MircColors,
         attrs: TextAttrs,
-        f: impl FnOnce(Result<&str, ()>) -> R,
-    ) -> R {
+    ) -> Result<StrippedStr<'ph>, ()> {
         let str = str.into_cstr();
 
         let mirc_flag = match mirc {
@@ -558,19 +528,20 @@ impl<'ph, P> PluginHandle<'ph, P> {
         // Safety: str is a null-terminated C string
         let stripped_ptr = unsafe { self.raw.hexchat_strip(str.as_ptr(), -1, flags) };
 
-        if stripped_ptr.is_null() {
-            return f(Err(()));
-        }
+        let stripped_ptr = match NonNull::new(stripped_ptr) {
+            Some(stripped_ptr) => stripped_ptr,
+            None => return Err(()),
+        };
 
-        // Safety: stripped_ptr was returned from hexchat_strip
-        defer! { unsafe { self.raw.hexchat_free(stripped_ptr as *mut _) } };
-
-        // Safety: hexchat_strip returns a valid pointer or null; temporary does not outlive this function
-        let stripped = unsafe { CStr::from_ptr(stripped_ptr) }
+        // Safety: hexchat_strip returns a valid pointer or null
+        let validated = unsafe { CStr::from_ptr(stripped_ptr.as_ptr()) }
             .to_str()
             .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e));
 
-        f(Ok(stripped))
+        // Safety: `stripped_ptr` points to `validated.len()` valid utf8 bytes; is not used after this
+        let stripped = unsafe { StrippedStr::new(self.raw, stripped_ptr, validated.len()) };
+
+        Ok(stripped)
     }
 }
 
