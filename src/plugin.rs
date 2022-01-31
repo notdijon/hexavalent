@@ -832,7 +832,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 ///
 /// Use `Cell` to store simple `Copy` types, as in the following (working) example of a count command.
 /// Also use `Cell` when a non-`Copy` type should be moved in and out of the state without mutation,
-/// as in [`PluginHandle::unhook`]'s example of storing [`HookHandle`](crate::hook::HookHandle).
+/// as in [`PluginHandle::unhook`]'s example, where a (non-`Copy`) [`HookHandle`](crate::hook::HookHandle) is stored.
 ///
 /// ```rust
 /// use std::cell::Cell;
