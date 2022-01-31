@@ -98,6 +98,7 @@
     unreachable_pub,
     unused_qualifications
 )]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 #[macro_use]
 mod macros;

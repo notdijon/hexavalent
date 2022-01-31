@@ -22,7 +22,8 @@ pub use crate::ffi::hexchat_plugin;
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
 #[doc(hidden)]
 pub unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
-    state::hexchat_plugin_init::<P>(plugin_handle)
+    // Safety: safety requirement forwarded to caller
+    unsafe { state::hexchat_plugin_init::<P>(plugin_handle) }
 }
 
 /// UNSTABLE: do not call this function.
@@ -34,5 +35,6 @@ pub unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_plugin)
 /// `plugin_handle` must point to a valid `hexchat_plugin`.
 #[doc(hidden)]
 pub unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexchat_plugin) -> c_int {
-    state::hexchat_plugin_deinit::<P>(plugin_handle)
+    // Safety: safety requirement forwarded to caller
+    unsafe { state::hexchat_plugin_deinit::<P>(plugin_handle) }
 }

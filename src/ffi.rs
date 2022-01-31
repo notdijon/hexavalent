@@ -75,7 +75,7 @@ pub(crate) unsafe fn word_to_iter<'a>(
 
     // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
     // Safety: first index is reserved, per documentation
-    let word = word.add(1);
+    let word = unsafe { word.add(1) };
 
     struct WordIter<'a> {
         word: *mut *mut c_char,

@@ -118,12 +118,14 @@ pub(crate) unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_
             defer! { STATE.store(NO_READERS, Ordering::Relaxed) };
 
             // Safety: STATE guarantees unique access to handles
-            *PLUGIN.get() = Some(GlobalPlugin {
-                #[cfg(debug_assertions)]
-                thread_id: std::thread::current().id(),
-                plugin: Box::new(P::default()),
-                plugin_handle,
-            });
+            unsafe {
+                *PLUGIN.get() = Some(GlobalPlugin {
+                    #[cfg(debug_assertions)]
+                    thread_id: std::thread::current().id(),
+                    plugin: Box::new(P::default()),
+                    plugin_handle,
+                });
+            }
         }
 
         with_plugin_state(|plugin: &P, ph| plugin.init(ph));
@@ -147,7 +149,9 @@ pub(crate) unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexcha
             defer! { STATE.store(NO_READERS, Ordering::Relaxed) };
 
             // Safety: STATE guarantees unique access to handles
-            *PLUGIN.get() = None;
+            unsafe {
+                *PLUGIN.get() = None;
+            }
         }
 
         LAST_RESORT_PLUGIN_HANDLE.store(ptr::null_mut(), Ordering::Relaxed);
