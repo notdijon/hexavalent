@@ -5,7 +5,7 @@
 /// Used with [`PluginHandle::get_info`](crate::PluginHandle::get_info).
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
-pub trait Info: private::InfoImpl
+pub trait Info: private::InfoImpl + 'static
 where
     Self::Type: private::FromInfoValue,
 {
@@ -14,7 +14,7 @@ where
     /// Can be `String`, or `Option<String>`.
     // todo with GATs, it _might_ be nice to have Type/BorrowedType<'a>, so that we can avoid allocation
     //  (but we'd probably have to make get_info_with unsafe due to invalidation of the string)
-    type Type;
+    type Type: 'static;
 }
 
 pub(crate) mod private {

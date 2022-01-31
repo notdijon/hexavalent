@@ -9,14 +9,14 @@ use std::str::Split;
 /// and [`PluginHandle::get_list_with`](crate::PluginHandle::get_list_with).
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
-pub trait List: private::ListImpl
+pub trait List: private::ListImpl + 'static
 where
     Self::Elem: private::FromListElem,
 {
     /// The type of elements of the list.
     // todo with GATs, it _might_ be nice to have Elem/BorrowedElem<'a>, so that we can avoid allocation
     //  (but we'd probably have to make get_list_with unsafe due to invalidation of the string)
-    type Elem;
+    type Elem: 'static;
 }
 
 pub(crate) mod private {
@@ -35,7 +35,7 @@ pub(crate) mod private {
 
     #[allow(unreachable_pub)]
     pub trait FromListElem: Sized {
-        fn from_list_elem(elem: ListElem<'_>) -> Self;
+        fn from_list_elem<P>(elem: ListElem<'_, P>) -> Self;
     }
 }
 
@@ -89,7 +89,7 @@ macro_rules! list {
         }
 
         impl crate::list::private::FromListElem for $elem_ty {
-            fn from_list_elem(elem: crate::ffi::ListElem<'_>) -> Self {
+            fn from_list_elem<P>(elem: crate::ffi::ListElem<'_, P>) -> Self {
                 Self {
                     $(
                         $rust_field_name: {

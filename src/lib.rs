@@ -103,6 +103,7 @@
 mod macros;
 
 mod ffi;
+mod iter;
 mod plugin;
 mod state;
 

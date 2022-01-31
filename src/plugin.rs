@@ -22,6 +22,7 @@ use crate::gui::FakePluginHandle;
 use crate::hook::{Eat, HookHandle, Priority, Timer};
 use crate::info::private::FromInfoValue;
 use crate::info::Info;
+use crate::iter::{CurriedItem, LendingIterator};
 use crate::list::private::FromListElem;
 use crate::list::List;
 use crate::mode::Sign;
@@ -183,7 +184,7 @@ pub trait Plugin: Default + 'static {
 #[derive(Debug)]
 pub struct PluginHandle<'ph, P: 'static> {
     /// Always points to a valid instance of `hexchat_plugin`.
-    handle: *mut hexchat_plugin,
+    pub(crate) handle: *mut hexchat_plugin,
     _lifetime: PhantomData<&'ph hexchat_plugin>,
     _plugin: PhantomData<P>,
 }
@@ -692,111 +693,123 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///         let ctxt = match ph.find_context(Context::FullyQualified { servname: channel.servname(), channel: channel.name() }) {
     ///             Some(ctxt) => ctxt,
     ///             None => {
-    ///                 ph.print(&format!("Failed to find channel {} in server {}, skipping.\0", channel.name(), channel.servname()));
+    ///                 ph.print(&format!("Failed to find channel {} on server {}, skipping.\0", channel.name(), channel.servname()));
+    ///                 continue;
+    ///             }
+    ///         };
+    ///         let users = match ph.with_context(ctxt, || ph.get_list(Users)) {
+    ///             Ok(users) => users,
+    ///             Err(()) => {
+    ///                 ph.print(&format!("Failed to find users in {} on server {}, skipping.\0", channel.name(), channel.servname()));
     ///                 continue;
     ///             }
     ///         };
     ///         ph.print(&format!("Users in {} on {}:\0", channel.name(), channel.servname()));
-    ///         let users = ph.with_context(ctxt, || ph.get_list(Users).unwrap_or_default());
     ///         for user in users {
     ///             ph.print(&format!("  {}{}", user.prefix().unwrap_or(' '), user.nick()));
     ///         }
     ///     }
     /// }
     /// ```
-    pub fn get_list<L: List>(self, list: L) -> Result<Vec<<L as List>::Elem>, ()> {
-        self.get_list_with(
-            list,
-            #[inline(always)]
-            |list| list.map(|l| l.collect()),
-        )
-    }
-
-    /// Gets a list of information, possibly specific to the current [context](crate::PluginHandle#impl-3).
-    ///
-    /// See the [`list`](crate::list) submodule for a list of lists.
-    ///
-    /// Behaves the same as [`PluginHandle::get_list`],
-    /// but avoids allocating a `Vec` to hold the list.
-    ///
-    /// Analogous to [`hexchat_list_get`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_list_get) and related functions.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use hexavalent::PluginHandle;
-    /// use hexavalent::context::Context;
-    /// use hexavalent::list::{Channels, Users};
-    ///
-    /// fn print_all_users_in_all_channels<P>(ph: PluginHandle<'_, P>) {
-    ///     ph.get_list_with(Channels, |channels| {
-    ///         let channels = match channels {
-    ///             Ok(channels) => channels,
-    ///             Err(()) => return ph.print("Failed to get channels!\0"),
-    ///         };
-    ///         for channel in channels {
-    ///             let ctxt = match ph.find_context(Context::FullyQualified { servname: channel.servname(), channel: channel.name() }) {
-    ///                 Some(ctxt) => ctxt,
-    ///                 None => {
-    ///                     ph.print(&format!("Failed to find channel {} in server {}, skipping.\0", channel.name(), channel.servname()));
-    ///                     continue;
-    ///                 }
-    ///             };
-    ///             ph.print(&format!("Users in {} on {}:\0", channel.name(), channel.servname()));
-    ///             let users = ph.with_context(ctxt, || ph.get_list(Users).unwrap_or_default());
-    ///             for user in users {
-    ///                 ph.print(&format!("  {}{}", user.prefix().unwrap_or(' '), user.nick()));
-    ///             }
-    ///         }
-    ///     });
-    /// }
-    /// ```
-    pub fn get_list_with<L: List, R>(
+    pub fn get_list<L: List>(
         self,
         list: L,
-        f: impl FnOnce(Result<&mut dyn Iterator<Item = <L as List>::Elem>, ()>) -> R,
+    ) -> Result<impl Iterator<Item = <L as List>::Elem> + 'ph, ()> {
+        // Safety: `ListElem`s are immediately consumed by `from_list_elem`, so they can't be invalidated
+        let mut iter = unsafe { self.get_list_iter(list) }?;
+
+        Ok(iter::from_fn(move || {
+            iter.next().map(FromListElem::from_list_elem)
+        }))
+    }
+
+    #[allow(dead_code)] // doesn't really make sense to export until we have GATs + LendingIterator in std
+    fn get_list_with<L: List, R>(
+        self,
+        list: L,
+        // Note: this must be a fn pointer to prevent invalidation of `ListElem`s.
+        f: fn(
+            Result<
+                &mut dyn LendingIterator<
+                    Item = dyn for<'a> CurriedItem<'a, Item = ListElem<'a, P>>,
+                >,
+                (),
+            >,
+        ) -> R,
     ) -> R {
+        // Safety: iter is only exposed to a function pointer which can't interact with Hexchat,
+        //         and is only passed in by reference, so it can't escape.
+        let iter = unsafe { self.get_list_iter(list) };
+
+        match iter {
+            Ok(mut iter) => f(Ok(&mut iter)),
+            Err(e) => f(Err(e)),
+        }
+    }
+
+    /// Get a `LendingIterator` over elements of the list.
+    ///
+    /// # Safety
+    ///
+    /// You must not interact with Hexchat in any way that could cause invalidation of a list elem
+    /// while any `ListElem` exists. The use of a `LendingIterator` prevents invalidating the list itself,
+    /// but other operations (e.g. switching channels) may also cause invalidation. To be safe, do not call
+    /// any Hexchat functions while a `ListElem` exists.
+    unsafe fn get_list_iter<L: List>(
+        self,
+        list: L,
+    ) -> Result<
+        impl LendingIterator<Item = dyn for<'a> CurriedItem<'a, Item = ListElem<'a, P>>> + 'ph,
+        (),
+    > {
         let _ = list;
 
         // Safety: handle is always valid
         let list_ptr = unsafe { ((*self.handle).hexchat_list_get)(self.handle, L::NAME) };
 
-        if list_ptr.is_null() {
-            return f(Err(()));
+        let list_ptr = match NonNull::new(list_ptr) {
+            Some(list_ptr) => list_ptr,
+            None => return Err(()),
+        };
+
+        struct ListElemIter<'ph, P: 'static> {
+            ph: PluginHandle<'ph, P>,
+            list_ptr: NonNull<hexchat_list>,
         }
 
-        // Safety: handle is always valid; list_ptr was returned from hexchat_list_get
-        // Safety: ListIter does not outlive this function, so there are no dangling pointers
-        defer! { unsafe { ((*self.handle).hexchat_list_free)(self.handle, list_ptr) } }
-
-        struct ListIter<E: FromListElem> {
-            handle: *mut hexchat_plugin,
-            list: *mut hexchat_list,
-            _elem: PhantomData<E>,
-        }
-
-        impl<E: FromListElem> Iterator for ListIter<E> {
-            type Item = E;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                // Safety: handle is always valid; list is valid
-                // Safety: hexchat_list_next can safely be called multiple times at the end of a list
-                if unsafe { ((*self.handle).hexchat_list_next)(self.handle, self.list) } == 0 {
-                    return None;
+        impl<'ph, P> Drop for ListElemIter<'ph, P> {
+            fn drop(&mut self) {
+                // Safety: handle is always valid; list_ptr was returned from hexchat_list_get
+                // Safety: `ListElem`s don't outlive this struct, so there are no dangling pointers
+                unsafe {
+                    ((*self.ph.handle).hexchat_list_free)(self.ph.handle, self.list_ptr.as_ptr())
                 }
-
-                // Safety: handle/list are valid for the entire lifetime of this iterator, and hexchat_list_next returned true
-                let elem = unsafe { ListElem::new(&self.handle, &self.list) };
-
-                Some(FromListElem::from_list_elem(elem))
             }
         }
 
-        f(Ok(&mut ListIter {
-            handle: self.handle,
-            list: list_ptr,
-            _elem: PhantomData,
-        }))
+        impl<'ph, P> LendingIterator for ListElemIter<'ph, P> {
+            type Item = dyn for<'a> CurriedItem<'a, Item = ListElem<'a, P>>;
+
+            fn next<'a>(&'a mut self) -> Option<ListElem<'a, P>> {
+                // Safety: handle is always valid; list is valid
+                // Safety: hexchat_list_next can safely be called multiple times at the end of a list
+                if unsafe {
+                    ((*self.ph.handle).hexchat_list_next)(self.ph.handle, self.list_ptr.as_ptr())
+                } == 0
+                {
+                    return None;
+                }
+
+                // Safety: handle/list are valid for the entire lifetime 'a, and hexchat_list_next returned true
+                // Safety: hexchat_list_next cannot be called while this ListElem exists, because this is a LendingIterator,
+                //         and the safety property of the parent get_list_elems ensures the lack of other invalidation.
+                let elem = unsafe { ListElem::<'a, P>::new(self.ph, self.list_ptr) };
+
+                Some(elem)
+            }
+        }
+
+        Ok(ListElemIter { ph: self, list_ptr })
     }
 }
 
