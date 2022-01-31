@@ -393,11 +393,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     // sends `MODE <users> +o`
     ///     ph.send_modes(users, Sign::Add, b'o');
     /// }
-    ///
-    /// fn unban_user<P>(ph: PluginHandle<'_, P>, user: &str) {
-    ///     // sends `MODE <user> -b`
-    ///     ph.send_modes(&[user], Sign::Remove, b'b');
-    /// }
     /// ```
     pub fn send_modes(self, targets: &[impl AsRef<str>], sign: Sign, mode_char: u8) {
         let targets: Vec<_> = targets.iter().map(|t| t.as_ref().into_cstr()).collect();
@@ -406,6 +401,43 @@ impl<'ph, P> PluginHandle<'ph, P> {
             .len()
             .try_into()
             .unwrap_or_else(|e| panic!("Too many send_modes targets: {}", e));
+
+        let sign = match sign {
+            Sign::Add => b'+',
+            Sign::Remove => b'-',
+        } as c_char;
+
+        let mode = mode_char as c_char;
+
+        // Safety: `targets` is an array of valid null-terminated C strings with `ntargets` length
+        unsafe {
+            self.raw
+                .hexchat_send_modes(targets.as_mut_ptr(), ntargets, 0, sign, mode)
+        }
+    }
+
+    /// Sends channel mode changes to a target in the current [context](crate::PluginHandle#impl-3).
+    ///
+    /// Behaves the same as [`PluginHandle::send_modes`],
+    /// but is more efficient when you only need to send mode changes to one target.
+    ///
+    /// Analogous to [`hexchat_send_modes`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_send_modes).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::mode::Sign;
+    ///
+    /// fn unban_user<P>(ph: PluginHandle<'_, P>, user: &str) {
+    ///     // sends `MODE <user> -b`
+    ///     ph.send_mode(user, Sign::Remove, b'b');
+    /// }
+    /// ```
+    pub fn send_mode(self, target: &str, sign: Sign, mode_char: u8) {
+        let target = target.into_cstr();
+        let mut targets: [*const c_char; 1] = [target.as_ptr()];
+        let ntargets = 1;
 
         let sign = match sign {
             Sign::Add => b'+',
