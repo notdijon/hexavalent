@@ -42,10 +42,9 @@ pub enum Context<'a> {
 
 /// A handle to a server/channel context in HexChat.
 ///
-/// Cannot be constructed in user code, but is returned from
-/// [`PluginHandle::find_context`](crate::PluginHandle::find_context).
+/// Returned from [`PluginHandle::find_context`](crate::PluginHandle::find_context).
 ///
-/// Can be passed to [`PluginHandle::with_context`](crate::PluginHandle::with_context) to run code in the context.
+/// Should be passed to [`PluginHandle::with_context`](crate::PluginHandle::with_context) to run code in the context.
 #[derive(Debug, Copy, Clone)]
 #[must_use = "context handles do nothing on their own, you must call `with_context` yourself"]
 pub struct ContextHandle<'a> {
@@ -67,7 +66,7 @@ impl<'a> ContextHandle<'a> {
     }
 
     /// Converts this `ContextHandle` back into a native `hexchat_context`.
-    pub(crate) fn as_ptr(self) -> NonNull<hexchat_context> {
+    pub(crate) fn into_raw(self) -> NonNull<hexchat_context> {
         self.handle
     }
 }

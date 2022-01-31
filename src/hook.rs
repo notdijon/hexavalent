@@ -73,10 +73,10 @@ pub enum Timer {
 
 /// A handle to a hook registered with HexChat.
 ///
-/// Cannot be constructed in user code, but is returned from hook registration functions such as
-/// [`PluginHandle::hook_command`](crate::PluginHandle::hook_command).
+/// Returned from hook registration functions such as [`PluginHandle::hook_command`](crate::PluginHandle::hook_command).
 ///
-/// Can be passed to [`PluginHandle::unhook`](crate::PluginHandle::unhook) to unregister the hook.
+/// Can be passed to [`PluginHandle::unhook`](crate::PluginHandle::unhook) to unregister the hook,
+/// although this is rarely necessary.
 ///
 /// HexChat automatically unhooks any remaining hooks after your plugin finishes unloading,
 /// so this type is only useful if you need to unhook a hook while your plugin is running.
