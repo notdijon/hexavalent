@@ -35,7 +35,7 @@ pub(crate) mod private {
 
     #[allow(unreachable_pub)]
     pub trait FromListElem: Sized {
-        fn from_list_elem<P>(elem: ListElem<'_, P>) -> Self;
+        fn from_list_elem(elem: ListElem<'_>) -> Self;
     }
 }
 
@@ -89,7 +89,7 @@ macro_rules! list {
         }
 
         impl crate::list::private::FromListElem for $elem_ty {
-            fn from_list_elem<P>(elem: crate::ffi::ListElem<'_, P>) -> Self {
+            fn from_list_elem(elem: crate::ffi::ListElem<'_>) -> Self {
                 Self {
                     $(
                         $rust_field_name: {
