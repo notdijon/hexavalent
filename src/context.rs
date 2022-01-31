@@ -67,7 +67,7 @@ impl<'a> ContextHandle<'a> {
     }
 
     /// Converts this `ContextHandle` back into a native `hexchat_context`.
-    pub(crate) fn as_ptr(self) -> NonNull<hexchat_context> {
+    pub(crate) fn into_raw(self) -> NonNull<hexchat_context> {
         self.handle
     }
 }

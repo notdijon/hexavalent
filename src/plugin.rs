@@ -1563,7 +1563,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let old_context = unsafe { self.raw.hexchat_get_context() };
 
         // Safety: `context` contains a valid context pointer
-        int_to_result(unsafe { self.raw.hexchat_set_context(context.as_ptr().as_ptr()) })
+        int_to_result(unsafe { self.raw.hexchat_set_context(context.into_raw().as_ptr()) })
             // this should be infallible, since the lifetime on ContextHandle prevents it from being stored,
             // and it should not be invalidated while our code is running
             .unwrap_or_else(|_| panic!("Channel invalidated while plugin running"));
