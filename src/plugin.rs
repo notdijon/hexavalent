@@ -322,7 +322,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// # #[cfg(not(feature = "__unstable_ircv3_line_in_event_attrs"))]
     /// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
-    ///     let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(86400 * 365 * 10));
+    ///     let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(86400 * 365 * 10).unwrap());
     ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
     /// }
     /// ```
@@ -1120,6 +1120,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
                 let timestamp = unsafe { (*attrs).server_time_utc };
+                let timestamp =
+                    OffsetDateTime::from_unix_timestamp(timestamp).unwrap_or_else(|e| {
+                        panic!("Invalid timestamp from `hexchat_event_attrs`: {}", e)
+                    });
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer; ircv3_line is a valid string; temporary does not outlive this function
                 #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
@@ -1128,7 +1132,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
                     .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_event_attrs`: {}", e));
 
                 let attrs = EventAttrs::new(
-                    OffsetDateTime::from_unix_timestamp(timestamp),
+                    timestamp,
                     #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
                     ircv3_line,
                 );
@@ -1298,6 +1302,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
                 let timestamp = unsafe { (*attrs).server_time_utc };
+                let timestamp =
+                    OffsetDateTime::from_unix_timestamp(timestamp).unwrap_or_else(|e| {
+                        panic!("Invalid timestamp from `hexchat_event_attrs`: {}", e)
+                    });
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer; ircv3_line is a valid string; temporary does not outlive this function
                 #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
@@ -1306,7 +1314,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
                     .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_event_attrs`: {}", e));
 
                 let attrs = EventAttrs::new(
-                    OffsetDateTime::from_unix_timestamp(timestamp),
+                    timestamp,
                     #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
                     ircv3_line,
                 );

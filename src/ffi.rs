@@ -160,7 +160,7 @@ impl<'a> ListElem<'a> {
         // Safety: hexchat_list_str gets a valid string or null, temporary does not outlive the list elem
         let str = unsafe { CStr::from_ptr(ptr) }
             .to_str()
-            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_get_prefs`: {}", e));
+            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_list_str`: {}", e));
 
         Some(str)
     }
@@ -181,6 +181,7 @@ impl<'a> ListElem<'a> {
         let time = unsafe { self.raw.hexchat_list_time(self.list_ptr.as_ptr(), name) };
 
         OffsetDateTime::from_unix_timestamp(time)
+            .unwrap_or_else(|e| panic!("Invalid timestamp from `hexchat_list_time`: {}", e))
     }
 }
 
