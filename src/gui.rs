@@ -8,7 +8,7 @@ use std::ptr::NonNull;
 /// Cannot be constructed in user code, but is returned from
 /// [`PluginHandle::plugingui_add`](crate::PluginHandle::plugingui_add).
 ///
-/// Can be passed to [`PluginHandle::plugingui_remove`](crate::PluginHandle::plugingui_remove)
+/// Must be passed to [`PluginHandle::plugingui_remove`](crate::PluginHandle::plugingui_remove)
 /// to remove the fake plugin.
 #[must_use = "fake plugins are not removed automatically, you must call `plugingui_remove` yourself"]
 #[derive(Debug)]

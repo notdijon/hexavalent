@@ -45,7 +45,7 @@ pub enum Context<'a> {
 /// Cannot be constructed in user code, but is returned from
 /// [`PluginHandle::find_context`](crate::PluginHandle::find_context).
 ///
-/// Can be passed to [`PluginHandle::with_context`](crate::PluginHandle::with_context) to run code in the context.
+/// Should be passed to [`PluginHandle::with_context`](crate::PluginHandle::with_context) to run code in the context.
 #[derive(Debug, Copy, Clone)]
 #[must_use = "context handles do nothing on their own, you must call `with_context` yourself"]
 pub struct ContextHandle<'a> {

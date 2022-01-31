@@ -908,9 +908,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
-    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
-    /// [`PluginHandle::unhook`] to unregister the hook.
-    ///
     /// Analogous to [`hexchat_hook_command`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_command).
     ///
     /// # Example
@@ -995,9 +992,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
-    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
-    /// [`PluginHandle::unhook`] to unregister the hook.
-    ///
     /// Analogous to [`hexchat_hook_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print).
     ///
     /// # Examples
@@ -1070,9 +1064,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
-    ///
-    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
-    /// [`PluginHandle::unhook`] to unregister the hook.
     ///
     /// Analogous to [`hexchat_hook_print_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print_attrs).
     ///
@@ -1173,9 +1164,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
-    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
-    /// [`PluginHandle::unhook`] to unregister the hook.
-    ///
     /// Analogous to [`hexchat_hook_server`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_server).
     ///
     /// # Examples
@@ -1251,9 +1239,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
-    ///
-    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
-    /// [`PluginHandle::unhook`] to unregister the hook.
     ///
     /// Analogous to [`hexchat_hook_server_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_server_attrs).
     ///
@@ -1356,9 +1341,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Note that `callback` is a function pointer and not an `impl Fn()`.
     /// This means that it cannot capture any variables; instead, use `plugin` to store state.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
-    ///
-    /// Returns a [`HookHandle`](crate::hook::HookHandle) which can be passed to
-    /// [`PluginHandle::unhook`] to unregister the hook.
     ///
     /// Analogous to [`hexchat_hook_timer`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_timer).
     ///
@@ -1505,7 +1487,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// See [`Context`](crate::context::Context) for available criteria.
     /// These include: the currently-focused tab, a specified channel, or the frontmost tab in a server.
     ///
-    /// Returns a [`ContextHandle`](crate::context::ContextHandle) which can be passed to
+    /// Returns a [`ContextHandle`](crate::context::ContextHandle) which should be passed to
     /// [`PluginHandle::with_context`] to enter the context.
     ///
     /// Analogous to [`hexchat_find_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_find_context).
@@ -1879,7 +1861,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Only useful if your plugin loads other plugins.
     /// Do not call this function with the same arguments you pass to [`export_plugin`].
     ///
-    /// Returns a [`FakePluginHandle`](crate::gui::FakePluginHandle) which can be passed to
+    /// Returns a [`FakePluginHandle`](crate::gui::FakePluginHandle) which must be passed to
     /// [`PluginHandle::plugingui_remove`] to remove the fake plugin.
     ///
     /// Analogous to [`hexchat_plugingui_add`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_plugingui_add).
