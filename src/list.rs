@@ -24,6 +24,11 @@ pub(crate) mod private {
 
     use crate::ffi::ListElem;
 
+    /// Underlying private list implementation.
+    ///
+    /// # Safety
+    ///
+    /// See safety comments on each member.
     pub unsafe trait ListImpl {
         /// The list's name.
         ///

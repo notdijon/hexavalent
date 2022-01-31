@@ -22,6 +22,11 @@ where
 pub(crate) mod private {
     use std::os::raw::c_char;
 
+    /// Underlying private preference implementation.
+    ///
+    /// # Safety
+    ///
+    /// See safety comments on each member.
     pub unsafe trait PrefImpl {
         /// The preference's name.
         ///

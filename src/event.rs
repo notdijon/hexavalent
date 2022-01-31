@@ -63,6 +63,11 @@ pub(crate) mod private {
     use std::ffi::CStr;
     use std::os::raw::c_char;
 
+    /// Underlying private event implementation.
+    ///
+    /// # Safety
+    ///
+    /// See safety comments on each member.
     pub unsafe trait EventImpl<'a> {
         /// The arguments associated with this event.
         ///

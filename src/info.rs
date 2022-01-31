@@ -20,6 +20,11 @@ where
 pub(crate) mod private {
     use std::os::raw::c_char;
 
+    /// Underlying private info implementation.
+    ///
+    /// # Safety
+    ///
+    /// See safety comments on each member.
     pub unsafe trait InfoImpl {
         /// The info's name.
         ///

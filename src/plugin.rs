@@ -1440,7 +1440,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
                 let callback: fn(plugin: &P, ph: PluginHandle<'_, P>) -> Timer =
                     unsafe { mem::transmute(user_data) };
 
-                with_plugin_state(|plugin, ph| callback(plugin, ph))
+                with_plugin_state(callback)
             })
             .unwrap_or(Timer::Stop) as c_int
         }
