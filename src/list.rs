@@ -5,8 +5,7 @@ use std::str::Split;
 
 /// A list that can be retrieved from HexChat.
 ///
-/// Used with [`PluginHandle::get_list`](crate::PluginHandle::get_list)
-/// and [`PluginHandle::get_list_with`](crate::PluginHandle::get_list_with).
+/// Used with [`PluginHandle::get_list`](crate::PluginHandle::get_list).
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
 pub trait List: private::ListImpl + 'static
