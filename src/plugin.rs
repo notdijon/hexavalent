@@ -903,8 +903,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// `words[0]`  is the name of the command, so `words[1]` is the first user-provided argument.
     /// `words` is limited to 32 elements, and HexChat may provide excess elements, so the length of `words` is not meaningful.
     ///
-    /// Note that `callback` is a function pointer and not an `impl Fn()`.
-    /// This means that it cannot capture any variables; instead, use `plugin` to store state.
+    /// Note that `callback` is a function pointer, so it cannot capture any variables.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_command`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_command).
@@ -987,8 +986,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// See the [`event::print`](crate::event::print) submodule for a list of print events.
     ///
-    /// Note that `callback` is a function pointer and not an `impl Fn()`.
-    /// This means that it cannot capture any variables; instead, use `plugin` to store state.
+    /// Note that `callback` is a function pointer, so it cannot capture any variables.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print).
@@ -1060,8 +1058,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// See the [`event::print`](crate::event::print) submodule for a list of print events.
     ///
-    /// Note that `callback` is a function pointer and not an `impl Fn()`.
-    /// This means that it cannot capture any variables; instead, use `plugin` to store state.
+    /// Note that `callback` is a function pointer, so it cannot capture any variables.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_print_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print_attrs).
@@ -1159,8 +1156,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// See the [`event::server`](crate::event::server) submodule for a list of server events.
     ///
-    /// Note that `callback` is a function pointer and not an `impl Fn()`.
-    /// This means that it cannot capture any variables; instead, use `plugin` to store state.
+    /// Note that `callback` is a function pointer, so it cannot capture any variables.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_server`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_server).
@@ -1235,8 +1231,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// See the [`event::server`](crate::event::server) submodule for a list of server events.
     ///
-    /// Note that `callback` is a function pointer and not an `impl Fn()`.
-    /// This means that it cannot capture any variables; instead, use `plugin` to store state.
+    /// Note that `callback` is a function pointer, so it cannot capture any variables.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_server_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_server_attrs).
@@ -1337,8 +1332,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// `callback` will be called at the interval specified by `timeout`, with a resolution of 1 millisecond.
     ///
-    /// Note that `callback` is a function pointer and not an `impl Fn()`.
-    /// This means that it cannot capture any variables; instead, use `plugin` to store state.
+    /// Note that `callback` is a function pointer, so it cannot capture any variables.
     /// See the [impl header](crate::PluginHandle#impl-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_timer`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_timer).
