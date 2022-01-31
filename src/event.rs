@@ -120,7 +120,7 @@ macro_rules! event {
         #[doc = $event_doc]
         #[doc = ""]
         #[doc = "Fields: "]
-        #[doc = "["]
+        #[doc = "`[`"]
         $(
             #[doc = "`"]
             #[doc = $field_name]
@@ -131,7 +131,7 @@ macro_rules! event {
             #[doc = $eol_name]
             #[doc = "`, "]
         )?
-        #[doc = "]."]
+        #[doc = "`]`."]
         #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
