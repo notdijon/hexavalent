@@ -89,7 +89,11 @@
 //! In debug mode (specifically, when `debug_assertions` is enabled), the current thread ID is checked every time the plugin is invoked,
 //! which can help detect misbehavior.
 
-#![allow(clippy::result_unit_err)]
+#![allow(
+    clippy::result_unit_err,
+    clippy::too_many_arguments,
+    clippy::type_complexity
+)]
 #![warn(
     missing_debug_implementations,
     missing_docs,
@@ -98,11 +102,13 @@
     unreachable_pub,
     unused_qualifications
 )]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 #[macro_use]
 mod macros;
 
 mod ffi;
+mod iter;
 mod plugin;
 mod state;
 

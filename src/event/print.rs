@@ -33,7 +33,7 @@ use crate::event::Event;
 /// use hexavalent::event::print::ChannelMessage;
 /// use hexavalent::hook::{Eat, Priority};
 ///
-/// fn hook_message<P: 'static>(ph: PluginHandle<'_, P>) {
+/// fn hook_message<P>(ph: PluginHandle<'_, P>) {
 ///     ph.hook_print(ChannelMessage, Priority::Normal, message_cb);
 /// }
 ///

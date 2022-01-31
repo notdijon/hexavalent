@@ -5,18 +5,17 @@ use std::str::Split;
 
 /// A list that can be retrieved from HexChat.
 ///
-/// Used with [`PluginHandle::get_list`](crate::PluginHandle::get_list)
-/// and [`PluginHandle::get_list_with`](crate::PluginHandle::get_list_with).
+/// Used with [`PluginHandle::get_list`](crate::PluginHandle::get_list).
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
-pub trait List: private::ListImpl
+pub trait List: private::ListImpl + 'static
 where
     Self::Elem: private::FromListElem,
 {
     /// The type of elements of the list.
     // todo with GATs, it _might_ be nice to have Elem/BorrowedElem<'a>, so that we can avoid allocation
     //  (but we'd probably have to make get_list_with unsafe due to invalidation of the string)
-    type Elem;
+    type Elem: 'static;
 }
 
 pub(crate) mod private {
@@ -24,6 +23,11 @@ pub(crate) mod private {
 
     use crate::ffi::ListElem;
 
+    /// Underlying private list implementation.
+    ///
+    /// # Safety
+    ///
+    /// See safety comments on each member.
     pub unsafe trait ListImpl {
         /// The list's name.
         ///

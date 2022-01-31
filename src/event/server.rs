@@ -18,7 +18,7 @@ use crate::event::Event;
 /// use hexavalent::event::server::Privmsg;
 /// use hexavalent::hook::{Eat, Priority};
 ///
-/// fn hook_privmsg<P: 'static>(ph: PluginHandle<'_, P>) {
+/// fn hook_privmsg<P>(ph: PluginHandle<'_, P>) {
 ///     ph.hook_server(Privmsg, Priority::Normal, privmsg_cb);
 /// }
 ///

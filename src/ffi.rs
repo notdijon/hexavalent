@@ -2,11 +2,14 @@ use std::borrow::Cow;
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_int};
+use std::ptr::NonNull;
 
 use time::OffsetDateTime;
 
 #[allow(missing_debug_implementations, missing_docs, unreachable_pub)]
 mod binding;
+
+mod handle;
 
 // constants https://hexchat.readthedocs.io/en/latest/plugins.html#types-and-constants
 pub(crate) use binding::{
@@ -18,6 +21,8 @@ pub(crate) use binding::{
 pub(crate) use binding::{hexchat_context, hexchat_event_attrs, hexchat_hook, hexchat_list};
 // this is used publicly by generated code
 pub use binding::hexchat_plugin;
+
+pub(crate) use handle::RawPluginHandle;
 
 // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_emit_print
 const SUCCESS: c_int = 1;
@@ -67,9 +72,12 @@ impl<'a> StrExt for &'a str {
 pub(crate) unsafe fn word_to_iter<'a>(
     word: &'a *mut *mut c_char,
 ) -> impl Iterator<Item = &'a CStr> {
+    // make it obvious that this is a non-raw-pointer deref
+    let word: *mut *mut c_char = *word;
+
     // https://hexchat.readthedocs.io/en/latest/plugins.html#what-s-word-and-word-eol
     // Safety: first index is reserved, per documentation
-    let word = word.add(1);
+    let word = unsafe { word.add(1) };
 
     struct WordIter<'a> {
         word: *mut *mut c_char,
@@ -117,11 +125,9 @@ pub(crate) unsafe fn word_to_iter<'a>(
 #[allow(unreachable_pub)]
 #[derive(Debug)]
 pub struct ListElem<'a> {
-    /// Always points to a valid instance of `hexchat_plugin`.
-    handle: *mut hexchat_plugin,
+    raw: RawPluginHandle<'a>,
     /// Always points to a valid list element.
-    list: *mut hexchat_list,
-    _lifetime: PhantomData<(&'a hexchat_plugin, &'a hexchat_list)>,
+    list_ptr: NonNull<hexchat_list>,
 }
 
 impl<'a> ListElem<'a> {
@@ -129,34 +135,32 @@ impl<'a> ListElem<'a> {
     ///
     /// # Safety
     ///
-    /// `handle` must point to a `hexchat_plugin` which is valid for the entire lifetime `'a`.
-    ///
     /// `list` must point to a `hexchat_list` element (e.g. one for which `hexchat_list_next` returned true),
     /// which is valid for the entire lifetime `'a`.
-    #[allow(clippy::trivially_copy_pass_by_ref)]
-    pub(crate) unsafe fn new(handle: &'a *mut hexchat_plugin, list: &'a *mut hexchat_list) -> Self {
-        Self {
-            handle: *handle,
-            list: *list,
-            _lifetime: PhantomData,
-        }
+    ///
+    /// You must not interact with Hexchat in any way that could invalidate this list elem while it exists.
+    /// Notably, this includes calling `hexchat_list_next` on the same list to get another element,
+    /// but may also include other operations (e.g. switching channels). To be safe, do not call
+    /// any Hexchat functions while a `ListElem` exists.
+    pub(crate) unsafe fn new(raw: RawPluginHandle<'a>, list_ptr: NonNull<hexchat_list>) -> Self {
+        Self { raw, list_ptr }
     }
 
-    pub(crate) fn string(&self, null_terminated_name: &str) -> Option<&'a str> {
+    pub(crate) fn string<'elem>(&'elem self, null_terminated_name: &str) -> Option<&'elem str> {
         assert!(null_terminated_name.as_bytes().last().copied() == Some(0));
         let name = null_terminated_name.as_ptr().cast();
 
-        // Safety: handle and list are always valid
-        let ptr = unsafe { ((*self.handle).hexchat_list_str)(self.handle, self.list, name) };
+        // Safety: list_ptr is valid per ListElem precondition, name is a null-terminated string
+        let ptr = unsafe { self.raw.hexchat_list_str(self.list_ptr.as_ptr(), name) };
 
         if ptr.is_null() {
             return None;
         }
 
-        // Safety: hexchat_list_str sets a valid string or null, temporary does not outlive the list
+        // Safety: hexchat_list_str gets a valid string or null, temporary does not outlive the list elem
         let str = unsafe { CStr::from_ptr(ptr) }
             .to_str()
-            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_get_prefs`: {}", e));
+            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_list_str`: {}", e));
 
         Some(str)
     }
@@ -165,18 +169,19 @@ impl<'a> ListElem<'a> {
         assert!(null_terminated_name.as_bytes().last().copied() == Some(0));
         let name = null_terminated_name.as_ptr().cast();
 
-        // Safety: handle and list are always valid
-        unsafe { ((*self.handle).hexchat_list_int)(self.handle, self.list, name) }
+        // Safety: list_ptr is valid per ListElem precondition, name is a null-terminated string
+        unsafe { self.raw.hexchat_list_int(self.list_ptr.as_ptr(), name) }
     }
 
     pub(crate) fn time(&self, null_terminated_name: &str) -> OffsetDateTime {
         assert!(null_terminated_name.as_bytes().last().copied() == Some(0));
         let name = null_terminated_name.as_ptr().cast();
 
-        // Safety: handle and list are always valid
-        let time = unsafe { ((*self.handle).hexchat_list_time)(self.handle, self.list, name) };
+        // Safety: list_ptr is valid per ListElem precondition, name is a null-terminated string
+        let time = unsafe { self.raw.hexchat_list_time(self.list_ptr.as_ptr(), name) };
 
         OffsetDateTime::from_unix_timestamp(time)
+            .unwrap_or_else(|e| panic!("Invalid timestamp from `hexchat_list_time`: {}", e))
     }
 }
 

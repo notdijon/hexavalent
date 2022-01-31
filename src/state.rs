@@ -5,10 +5,11 @@ use std::os::raw::c_int;
 use std::panic::{catch_unwind, UnwindSafe};
 use std::process;
 use std::ptr;
+use std::ptr::NonNull;
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 use std::usize;
 
-use crate::ffi::{hexchat_plugin, result_to_int};
+use crate::ffi::{hexchat_plugin, result_to_int, RawPluginHandle};
 use crate::plugin::{Plugin, PluginHandle};
 
 /// Plugin handle used to log caught panics, when the normal (safe) plugin context might not be available.
@@ -94,7 +95,7 @@ struct GlobalPlugin {
     #[cfg(debug_assertions)]
     thread_id: std::thread::ThreadId,
     plugin: Box<dyn Any>,
-    plugin_handle: *mut hexchat_plugin,
+    plugin_handle: NonNull<hexchat_plugin>,
 }
 
 /// Global handle to the user's plugin data and the global HexChat plugin context.
@@ -111,6 +112,11 @@ pub(crate) unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_
     result_to_int(catch_and_log_unwind("init", || {
         LAST_RESORT_PLUGIN_HANDLE.store(plugin_handle, Ordering::Relaxed);
 
+        let plugin_handle = match NonNull::new(plugin_handle) {
+            Some(ph) => ph,
+            None => panic!("Plugin initialized with null handle"),
+        };
+
         {
             STATE
                 .compare_exchange(NO_READERS, LOCKED, Ordering::Relaxed, Ordering::Relaxed)
@@ -118,12 +124,14 @@ pub(crate) unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_
             defer! { STATE.store(NO_READERS, Ordering::Relaxed) };
 
             // Safety: STATE guarantees unique access to handles
-            *PLUGIN.get() = Some(GlobalPlugin {
-                #[cfg(debug_assertions)]
-                thread_id: std::thread::current().id(),
-                plugin: Box::new(P::default()),
-                plugin_handle,
-            });
+            unsafe {
+                *PLUGIN.get() = Some(GlobalPlugin {
+                    #[cfg(debug_assertions)]
+                    thread_id: std::thread::current().id(),
+                    plugin: Box::new(P::default()),
+                    plugin_handle,
+                });
+            }
         }
 
         with_plugin_state(|plugin: &P, ph| plugin.init(ph));
@@ -147,7 +155,9 @@ pub(crate) unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexcha
             defer! { STATE.store(NO_READERS, Ordering::Relaxed) };
 
             // Safety: STATE guarantees unique access to handles
-            *PLUGIN.get() = None;
+            unsafe {
+                *PLUGIN.get() = None;
+            }
         }
 
         LAST_RESORT_PLUGIN_HANDLE.store(ptr::null_mut(), Ordering::Relaxed);
@@ -198,7 +208,9 @@ pub(crate) fn with_plugin_state<P: 'static, R>(f: impl FnOnce(&P, PluginHandle<'
         .unwrap_or_else(|| panic!("Plugin is an unexpected type"));
 
     // Safety: we only store valid `plugin_handle`s in `PLUGIN`
-    let ph = unsafe { PluginHandle::new(global_plugin.plugin_handle) };
+    let raw = unsafe { RawPluginHandle::new(global_plugin.plugin_handle) };
+
+    let ph = PluginHandle::new(raw);
 
     f(plugin, ph)
 }

@@ -63,6 +63,11 @@ pub(crate) mod private {
     use std::ffi::CStr;
     use std::os::raw::c_char;
 
+    /// Underlying private event implementation.
+    ///
+    /// # Safety
+    ///
+    /// See safety comments on each member.
     pub unsafe trait EventImpl<'a> {
         /// The arguments associated with this event.
         ///
@@ -115,7 +120,7 @@ macro_rules! event {
         #[doc = $event_doc]
         #[doc = ""]
         #[doc = "Fields: "]
-        #[doc = "["]
+        #[doc = "`[`"]
         $(
             #[doc = "`"]
             #[doc = $field_name]
@@ -126,7 +131,7 @@ macro_rules! event {
             #[doc = $eol_name]
             #[doc = "`, "]
         )?
-        #[doc = "]."]
+        #[doc = "`]`."]
         #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 

@@ -15,20 +15,21 @@ use crate::event::print::PrintEvent;
 use crate::event::server::ServerEvent;
 use crate::event::{Event, EventAttrs};
 use crate::ffi::{
-    hexchat_event_attrs, hexchat_list, hexchat_plugin, int_to_result, word_to_iter, ListElem,
+    hexchat_event_attrs, hexchat_list, int_to_result, word_to_iter, ListElem, RawPluginHandle,
     StrExt,
 };
 use crate::gui::FakePluginHandle;
 use crate::hook::{Eat, HookHandle, Priority, Timer};
 use crate::info::private::FromInfoValue;
 use crate::info::Info;
+use crate::iter::{CurriedItem, LendingIterator};
 use crate::list::private::FromListElem;
 use crate::list::List;
 use crate::mode::Sign;
 use crate::pref::private::{FromPrefValue, PrefValue};
 use crate::pref::Pref;
 use crate::state::{catch_and_log_unwind, with_plugin_state};
-use crate::strip::{MircColors, TextAttrs};
+use crate::strip::{MircColors, StrippedStr, TextAttrs};
 
 /// Must be implemented by all HexChat plugins.
 ///
@@ -181,10 +182,8 @@ pub trait Plugin: Default + 'static {
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct PluginHandle<'ph, P> {
-    /// Always points to a valid instance of `hexchat_plugin`.
-    handle: *mut hexchat_plugin,
-    _lifetime: PhantomData<&'ph hexchat_plugin>,
+pub struct PluginHandle<'ph, P: 'static> {
+    pub(crate) raw: RawPluginHandle<'ph>,
     _plugin: PhantomData<P>,
 }
 
@@ -196,15 +195,9 @@ impl<'ph, P> Clone for PluginHandle<'ph, P> {
 }
 
 impl<'ph, P> PluginHandle<'ph, P> {
-    /// Creates a new `PluginHandle` from a native `hexchat_plugin`.
-    ///
-    /// # Safety
-    ///
-    /// `plugin_handle` must point to a valid instance of `hexchat_plugin`.
-    pub(crate) unsafe fn new(plugin_handle: *mut hexchat_plugin) -> Self {
+    pub(crate) fn new(raw: RawPluginHandle<'ph>) -> Self {
         Self {
-            handle: plugin_handle,
-            _lifetime: PhantomData,
+            raw,
             _plugin: PhantomData,
         }
     }
@@ -230,9 +223,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// ```
     pub fn print(self, text: &str) {
         let text = text.into_cstr();
-        // Safety: `handle` is always valid
+        // Safety: `text` is a null-terminated C string
         unsafe {
-            ((*self.handle).hexchat_print)(self.handle, text.as_ptr());
+            self.raw.hexchat_print(text.as_ptr());
         }
     }
 
@@ -252,9 +245,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// ```
     pub fn command(self, cmd: &str) {
         let cmd = cmd.into_cstr();
-        // Safety: `handle` is always valid
+        // Safety: `cmd` is a null-terminated C string
         unsafe {
-            ((*self.handle).hexchat_command)(self.handle, cmd.as_ptr());
+            self.raw.hexchat_command(cmd.as_ptr());
         }
     }
 
@@ -296,10 +289,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
                 args.get(3).map_or_else(ptr::null, |a| a.as_ptr()),
             ];
 
-            // Safety: `handle` is always valid
+            // Safety: `NAME` and `args` are null-terminated C strings; vararg list is null-terminated
             int_to_result(unsafe {
-                ((*self.handle).hexchat_emit_print)(
-                    self.handle,
+                self.raw.hexchat_emit_print(
                     E::NAME,
                     args[0],
                     args[1],
@@ -330,7 +322,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// # #[cfg(not(feature = "__unstable_ircv3_line_in_event_attrs"))]
     /// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
-    ///     let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(86400 * 365 * 10));
+    ///     let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(86400 * 365 * 10).unwrap());
     ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
     /// }
     /// ```
@@ -354,10 +346,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
                 args.get(3).map_or_else(ptr::null, |a| a.as_ptr()),
             ];
 
-            // Safety: `handle` is always valid
             int_to_result(unsafe {
-                let event_attrs = ((*self.handle).hexchat_event_attrs_create)(self.handle);
-                defer! { ((*self.handle).hexchat_event_attrs_free)(self.handle, event_attrs) };
+                // Safety: no preconditions
+                let event_attrs = self.raw.hexchat_event_attrs_create();
+                // Safety: `event_attrs` does not escape`
+                defer! { self.raw.hexchat_event_attrs_free(event_attrs) };
 
                 ptr::write(
                     &mut (*event_attrs).server_time_utc as *mut _,
@@ -372,8 +365,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
                     ircv3_line.as_ptr(),
                 );
 
-                ((*self.handle).hexchat_emit_print_attrs)(
-                    self.handle,
+                // Safety: `event_attrs` is fully initialized; `NAME` and `args` are null-terminated C strings, varags list is null-terminated
+                self.raw.hexchat_emit_print_attrs(
                     event_attrs,
                     E::NAME,
                     args[0],
@@ -400,11 +393,6 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     // sends `MODE <users> +o`
     ///     ph.send_modes(users, Sign::Add, b'o');
     /// }
-    ///
-    /// fn unban_user<P>(ph: PluginHandle<'_, P>, user: &str) {
-    ///     // sends `MODE <user> -b`
-    ///     ph.send_modes(&[user], Sign::Remove, b'b');
-    /// }
     /// ```
     pub fn send_modes(self, targets: &[impl AsRef<str>], sign: Sign, mode_char: u8) {
         let targets: Vec<_> = targets.iter().map(|t| t.as_ref().into_cstr()).collect();
@@ -421,16 +409,47 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
         let mode = mode_char as c_char;
 
-        // Safety: handle is always valid
+        // Safety: `targets` is an array of valid null-terminated C strings with `ntargets` length
         unsafe {
-            ((*self.handle).hexchat_send_modes)(
-                self.handle,
-                targets.as_mut_ptr(),
-                ntargets,
-                0,
-                sign,
-                mode,
-            )
+            self.raw
+                .hexchat_send_modes(targets.as_mut_ptr(), ntargets, 0, sign, mode)
+        }
+    }
+
+    /// Sends channel mode changes to a target in the current [context](crate::PluginHandle#impl-3).
+    ///
+    /// Behaves the same as [`PluginHandle::send_modes`],
+    /// but is more efficient when you only need to send mode changes to one target.
+    ///
+    /// Analogous to [`hexchat_send_modes`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_send_modes).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hexavalent::PluginHandle;
+    /// use hexavalent::mode::Sign;
+    ///
+    /// fn unban_user<P>(ph: PluginHandle<'_, P>, user: &str) {
+    ///     // sends `MODE <user> -b`
+    ///     ph.send_mode(user, Sign::Remove, b'b');
+    /// }
+    /// ```
+    pub fn send_mode(self, target: &str, sign: Sign, mode_char: u8) {
+        let target = target.into_cstr();
+        let mut targets: [*const c_char; 1] = [target.as_ptr()];
+        let ntargets = 1;
+
+        let sign = match sign {
+            Sign::Add => b'+',
+            Sign::Remove => b'-',
+        } as c_char;
+
+        let mode = mode_char as c_char;
+
+        // Safety: `targets` is an array of valid null-terminated C strings with `ntargets` length
+        unsafe {
+            self.raw
+                .hexchat_send_modes(targets.as_mut_ptr(), ntargets, 0, sign, mode)
         }
     }
 
@@ -462,9 +481,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let s1 = s1.into_cstr();
         let s2 = s2.into_cstr();
 
-        // Safety: handle is always valid
-        let ordering =
-            unsafe { ((*self.handle).hexchat_nickcmp)(self.handle, s1.as_ptr(), s2.as_ptr()) };
+        // Safety: s1 and s2 are null-terminated C strings
+        let ordering = unsafe { self.raw.hexchat_nickcmp(s1.as_ptr(), s2.as_ptr()) };
 
         ordering.cmp(&0)
     }
@@ -483,48 +501,18 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     let orig = "\x0312Blue\x03 \x02Bold!\x02";
     ///
     ///     let strip_all = ph.strip(orig, MircColors::Remove, TextAttrs::Remove);
-    ///     assert_eq!(strip_all.unwrap(), "Blue Bold!");
+    ///     assert_eq!(strip_all.unwrap().as_ref(), "Blue Bold!");
     ///
     ///     let strip_colors = ph.strip(orig, MircColors::Remove, TextAttrs::Keep);
-    ///     assert_eq!(strip_colors.unwrap(), "Blue \x02Bold!\x02");
+    ///     assert_eq!(strip_colors.unwrap().as_ref(), "Blue \x02Bold!\x02");
     /// }
     /// ```
-    pub fn strip(self, str: &str, mirc: MircColors, attrs: TextAttrs) -> Result<String, ()> {
-        self.strip_with(str, mirc, attrs, |s| s.map(ToOwned::to_owned))
-    }
-
-    /// Strips mIRC colors and/or text attributes (bold, underline, etc.) from a string.
-    ///
-    /// Behaves the same as [`PluginHandle::strip`],
-    /// but avoids allocating a `String` to hold the stripped string.
-    ///
-    /// Analogous to [`hexchat_strip`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_strip).
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use hexavalent::PluginHandle;
-    /// use hexavalent::strip::{MircColors, TextAttrs};
-    ///
-    /// fn strip_example<P>(ph: PluginHandle<'_, P>) {
-    ///     let orig = "\x0312Blue\x03 \x02Bold!\x02";
-    ///
-    ///     ph.strip_with(orig, MircColors::Remove, TextAttrs::Remove, |strip_all| {
-    ///         assert_eq!(strip_all, Ok("Blue Bold!"));
-    ///     });
-    ///
-    ///     ph.strip_with(orig, MircColors::Remove, TextAttrs::Keep, |strip_colors| {
-    ///         assert_eq!(strip_colors, Ok("Blue \x02Bold!\x02"));
-    ///     });
-    /// }
-    /// ```
-    pub fn strip_with<R>(
+    pub fn strip(
         self,
         str: &str,
         mirc: MircColors,
         attrs: TextAttrs,
-        f: impl FnOnce(Result<&str, ()>) -> R,
-    ) -> R {
+    ) -> Result<StrippedStr<'ph>, ()> {
         let str = str.into_cstr();
 
         let mirc_flag = match mirc {
@@ -537,23 +525,23 @@ impl<'ph, P> PluginHandle<'ph, P> {
         } << 1;
         let flags = mirc_flag | attrs_flag;
 
-        // Safety: handle is always valid
-        let stripped_ptr =
-            unsafe { ((*self.handle).hexchat_strip)(self.handle, str.as_ptr(), -1, flags) };
+        // Safety: str is a null-terminated C string
+        let stripped_ptr = unsafe { self.raw.hexchat_strip(str.as_ptr(), -1, flags) };
 
-        if stripped_ptr.is_null() {
-            return f(Err(()));
-        }
+        let stripped_ptr = match NonNull::new(stripped_ptr) {
+            Some(stripped_ptr) => stripped_ptr,
+            None => return Err(()),
+        };
 
-        // Safety: handle is always valid; stripped_ptr was returned from hexchat_strip
-        defer! { unsafe { ((*self.handle).hexchat_free)(self.handle, stripped_ptr as *mut _) } };
-
-        // Safety: hexchat_strip returns a valid pointer or null; temporary does not outlive this function
-        let stripped = unsafe { CStr::from_ptr(stripped_ptr) }
+        // Safety: hexchat_strip returns a valid pointer or null
+        let validated = unsafe { CStr::from_ptr(stripped_ptr.as_ptr()) }
             .to_str()
             .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e));
 
-        f(Ok(stripped))
+        // Safety: `stripped_ptr` points to `validated.len()` valid utf8 bytes; is not used after this
+        let stripped = unsafe { StrippedStr::new(self.raw, stripped_ptr, validated.len()) };
+
+        Ok(stripped)
     }
 }
 
@@ -594,8 +582,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ) -> R {
         let _ = info;
 
-        // Safety: handle is always valid
-        let ptr = unsafe { ((*self.handle).hexchat_get_info)(self.handle, I::NAME) };
+        // Safety: NAME is a null-terminated C string
+        let ptr = unsafe { self.raw.hexchat_get_info(I::NAME) };
 
         if ptr.is_null() {
             return f(None);
@@ -645,10 +633,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let mut string = ptr::null();
         let mut int = 0;
 
-        // Safety: handle is always valid
-        let result = unsafe {
-            ((*self.handle).hexchat_get_prefs)(self.handle, Pr::NAME, &mut string, &mut int)
-        };
+        // Safety: NAME is a null-terminated C string
+        let result = unsafe { self.raw.hexchat_get_prefs(Pr::NAME, &mut string, &mut int) };
 
         // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_prefs
         let value = match result {
@@ -692,111 +678,119 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///         let ctxt = match ph.find_context(Context::FullyQualified { servname: channel.servname(), channel: channel.name() }) {
     ///             Some(ctxt) => ctxt,
     ///             None => {
-    ///                 ph.print(&format!("Failed to find channel {} in server {}, skipping.\0", channel.name(), channel.servname()));
+    ///                 ph.print(&format!("Failed to find channel {} on server {}, skipping.\0", channel.name(), channel.servname()));
+    ///                 continue;
+    ///             }
+    ///         };
+    ///         let users = match ph.with_context(ctxt, || ph.get_list(Users)) {
+    ///             Ok(users) => users,
+    ///             Err(()) => {
+    ///                 ph.print(&format!("Failed to find users in {} on server {}, skipping.\0", channel.name(), channel.servname()));
     ///                 continue;
     ///             }
     ///         };
     ///         ph.print(&format!("Users in {} on {}:\0", channel.name(), channel.servname()));
-    ///         let users = ph.with_context(ctxt, || ph.get_list(Users).unwrap_or_default());
     ///         for user in users {
     ///             ph.print(&format!("  {}{}", user.prefix().unwrap_or(' '), user.nick()));
     ///         }
     ///     }
     /// }
     /// ```
-    pub fn get_list<L: List>(self, list: L) -> Result<Vec<<L as List>::Elem>, ()> {
-        self.get_list_with(
-            list,
-            #[inline(always)]
-            |list| list.map(|l| l.collect()),
-        )
-    }
-
-    /// Gets a list of information, possibly specific to the current [context](crate::PluginHandle#impl-3).
-    ///
-    /// See the [`list`](crate::list) submodule for a list of lists.
-    ///
-    /// Behaves the same as [`PluginHandle::get_list`],
-    /// but avoids allocating a `Vec` to hold the list.
-    ///
-    /// Analogous to [`hexchat_list_get`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_list_get) and related functions.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use hexavalent::PluginHandle;
-    /// use hexavalent::context::Context;
-    /// use hexavalent::list::{Channels, Users};
-    ///
-    /// fn print_all_users_in_all_channels<P>(ph: PluginHandle<'_, P>) {
-    ///     ph.get_list_with(Channels, |channels| {
-    ///         let channels = match channels {
-    ///             Ok(channels) => channels,
-    ///             Err(()) => return ph.print("Failed to get channels!\0"),
-    ///         };
-    ///         for channel in channels {
-    ///             let ctxt = match ph.find_context(Context::FullyQualified { servname: channel.servname(), channel: channel.name() }) {
-    ///                 Some(ctxt) => ctxt,
-    ///                 None => {
-    ///                     ph.print(&format!("Failed to find channel {} in server {}, skipping.\0", channel.name(), channel.servname()));
-    ///                     continue;
-    ///                 }
-    ///             };
-    ///             ph.print(&format!("Users in {} on {}:\0", channel.name(), channel.servname()));
-    ///             let users = ph.with_context(ctxt, || ph.get_list(Users).unwrap_or_default());
-    ///             for user in users {
-    ///                 ph.print(&format!("  {}{}", user.prefix().unwrap_or(' '), user.nick()));
-    ///             }
-    ///         }
-    ///     });
-    /// }
-    /// ```
-    pub fn get_list_with<L: List, R>(
+    pub fn get_list<L: List>(
         self,
         list: L,
-        f: impl FnOnce(Result<&mut dyn Iterator<Item = <L as List>::Elem>, ()>) -> R,
+    ) -> Result<impl Iterator<Item = <L as List>::Elem> + 'ph, ()> {
+        // Safety: `ListElem`s are immediately consumed by `from_list_elem`, so they can't be invalidated
+        let mut iter = unsafe { self.get_list_iter(list) }?;
+
+        Ok(iter::from_fn(move || {
+            iter.next().map(FromListElem::from_list_elem)
+        }))
+    }
+
+    #[allow(dead_code)] // doesn't really make sense to export until we have GATs + LendingIterator in std
+    fn get_list_with<L: List, R>(
+        self,
+        list: L,
+        // Note: this must be a fn pointer to prevent invalidation of `ListElem`s.
+        f: fn(
+            Result<
+                &mut dyn LendingIterator<Item = dyn for<'a> CurriedItem<'a, Item = ListElem<'a>>>,
+                (),
+            >,
+        ) -> R,
     ) -> R {
+        // Safety: iter is only exposed to a function pointer which can't interact with Hexchat,
+        //         and is only passed in by reference, so it can't escape
+        let iter = unsafe { self.get_list_iter(list) };
+
+        match iter {
+            Ok(mut iter) => f(Ok(&mut iter)),
+            Err(e) => f(Err(e)),
+        }
+    }
+
+    /// Get a `LendingIterator` over elements of the list.
+    ///
+    /// # Safety
+    ///
+    /// You must not interact with Hexchat in any way that could cause invalidation of a list elem
+    /// while any `ListElem` exists. The use of a `LendingIterator` prevents invalidating the list itself,
+    /// but other operations (e.g. switching channels) may also cause invalidation. To be safe, do not call
+    /// any Hexchat functions while a `ListElem` exists.
+    unsafe fn get_list_iter<L: List>(
+        self,
+        list: L,
+    ) -> Result<
+        impl LendingIterator<Item = dyn for<'a> CurriedItem<'a, Item = ListElem<'a>>> + 'ph,
+        (),
+    > {
         let _ = list;
 
-        // Safety: handle is always valid
-        let list_ptr = unsafe { ((*self.handle).hexchat_list_get)(self.handle, L::NAME) };
+        // Safety: NAME is a null-terminated C string
+        let list_ptr = unsafe { self.raw.hexchat_list_get(L::NAME) };
 
-        if list_ptr.is_null() {
-            return f(Err(()));
+        let list_ptr = match NonNull::new(list_ptr) {
+            Some(list_ptr) => list_ptr,
+            None => return Err(()),
+        };
+
+        struct ListElemIter<'ph> {
+            raw: RawPluginHandle<'ph>,
+            list_ptr: NonNull<hexchat_list>,
         }
 
-        // Safety: handle is always valid; list_ptr was returned from hexchat_list_get
-        // Safety: ListIter does not outlive this function, so there are no dangling pointers
-        defer! { unsafe { ((*self.handle).hexchat_list_free)(self.handle, list_ptr) } }
-
-        struct ListIter<E: FromListElem> {
-            handle: *mut hexchat_plugin,
-            list: *mut hexchat_list,
-            _elem: PhantomData<E>,
-        }
-
-        impl<E: FromListElem> Iterator for ListIter<E> {
-            type Item = E;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                // Safety: handle is always valid; list is valid
-                // Safety: hexchat_list_next can safely be called multiple times at the end of a list
-                if unsafe { ((*self.handle).hexchat_list_next)(self.handle, self.list) } == 0 {
-                    return None;
-                }
-
-                // Safety: handle/list are valid for the entire lifetime of this iterator, and hexchat_list_next returned true
-                let elem = unsafe { ListElem::new(&self.handle, &self.list) };
-
-                Some(FromListElem::from_list_elem(elem))
+        impl<'ph> Drop for ListElemIter<'ph> {
+            fn drop(&mut self) {
+                // Safety: list_ptr was returned from hexchat_list_get
+                // Safety: `ListElem`s don't outlive this struct, so there are no dangling pointers
+                unsafe { self.raw.hexchat_list_free(self.list_ptr.as_ptr()) };
             }
         }
 
-        f(Ok(&mut ListIter {
-            handle: self.handle,
-            list: list_ptr,
-            _elem: PhantomData,
-        }))
+        impl<'ph> LendingIterator for ListElemIter<'ph> {
+            type Item = dyn for<'a> CurriedItem<'a, Item = ListElem<'a>>;
+
+            fn next<'a>(&'a mut self) -> Option<ListElem<'a>> {
+                // Safety: list is valid for the entire lifetime 'a
+                // Safety: hexchat_list_next can safely be called multiple times at the end of a list
+                if unsafe { self.raw.hexchat_list_next(self.list_ptr.as_ptr()) } == 0 {
+                    return None;
+                }
+
+                // Safety: list is valid for the entire lifetime 'a, and hexchat_list_next returned true
+                // Safety: hexchat_list_next cannot be called while this ListElem exists, because this is a LendingIterator,
+                //         and the safety property of the parent get_list_elems ensures the lack of other invalidation.
+                let elem = unsafe { ListElem::<'a>::new(self.raw, self.list_ptr) };
+
+                Some(elem)
+            }
+        }
+
+        Ok(ListElemIter {
+            raw: self.raw,
+            list_ptr,
+        })
     }
 }
 
@@ -899,7 +893,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 /// }
 /// ```
 ///
-impl<'ph, P: 'static> PluginHandle<'ph, P> {
+impl<'ph, P> PluginHandle<'ph, P> {
     /// Registers a command hook with HexChat.
     ///
     /// The command is usable by typing `/command <words...>`.
@@ -975,10 +969,9 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
         let name = name.into_cstr();
         let help_text = help_text.into_cstr();
 
-        // Safety: handle is always valid
+        // Safety: `name` and `help_text` are null-terminated C strings
         let hook = unsafe {
-            ((*self.handle).hexchat_hook_command)(
-                self.handle,
+            self.raw.hexchat_hook_command(
                 name.as_ptr(),
                 priority as c_int,
                 hook_command_callback::<P>,
@@ -1053,10 +1046,9 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
         let _ = event;
 
-        // Safety: handle is always valid
+        // Safety: NAME is a null-terminated C string
         let hook = unsafe {
-            ((*self.handle).hexchat_hook_print)(
-                self.handle,
+            self.raw.hexchat_hook_print(
                 E::NAME,
                 priority as c_int,
                 hook_print_callback::<P, E>,
@@ -1128,6 +1120,10 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
                 let timestamp = unsafe { (*attrs).server_time_utc };
+                let timestamp =
+                    OffsetDateTime::from_unix_timestamp(timestamp).unwrap_or_else(|e| {
+                        panic!("Invalid timestamp from `hexchat_event_attrs`: {}", e)
+                    });
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer; ircv3_line is a valid string; temporary does not outlive this function
                 #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
@@ -1136,7 +1132,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                     .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_event_attrs`: {}", e));
 
                 let attrs = EventAttrs::new(
-                    OffsetDateTime::from_unix_timestamp(timestamp),
+                    timestamp,
                     #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
                     ircv3_line,
                 );
@@ -1152,10 +1148,9 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
         let _ = event;
 
-        // Safety: handle is always valid
+        // Safety: NAME is a null-terminated C string
         let hook = unsafe {
-            ((*self.handle).hexchat_hook_print_attrs)(
-                self.handle,
+            self.raw.hexchat_hook_print_attrs(
                 E::NAME,
                 priority as c_int,
                 hook_print_attrs_callback::<P, E>,
@@ -1232,10 +1227,9 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
         let _ = event;
 
-        // Safety: handle is always valid
+        // Safety: NAME is a null-terminated C string
         let hook = unsafe {
-            ((*self.handle).hexchat_hook_server)(
-                self.handle,
+            self.raw.hexchat_hook_server(
                 E::NAME,
                 priority as c_int,
                 hook_server_callback::<P, E>,
@@ -1308,6 +1302,10 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
                 let timestamp = unsafe { (*attrs).server_time_utc };
+                let timestamp =
+                    OffsetDateTime::from_unix_timestamp(timestamp).unwrap_or_else(|e| {
+                        panic!("Invalid timestamp from `hexchat_event_attrs`: {}", e)
+                    });
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer; ircv3_line is a valid string; temporary does not outlive this function
                 #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
@@ -1316,7 +1314,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                     .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_event_attrs`: {}", e));
 
                 let attrs = EventAttrs::new(
-                    OffsetDateTime::from_unix_timestamp(timestamp),
+                    timestamp,
                     #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
                     ircv3_line,
                 );
@@ -1334,10 +1332,9 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
 
         let _ = event;
 
-        // Safety: handle is always valid
+        // Safety: NAME is a null-terminated C string
         let hook = unsafe {
-            ((*self.handle).hexchat_hook_server_attrs)(
-                self.handle,
+            self.raw.hexchat_hook_server_attrs(
                 E::NAME,
                 priority as c_int,
                 hook_server_attrs_callback::<P, E>,
@@ -1422,7 +1419,7 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
                 let callback: fn(plugin: &P, ph: PluginHandle<'_, P>) -> Timer =
                     unsafe { mem::transmute(user_data) };
 
-                with_plugin_state(|plugin, ph| callback(plugin, ph))
+                with_plugin_state(callback)
             })
             .unwrap_or(Timer::Stop) as c_int
         }
@@ -1432,10 +1429,9 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
             .try_into()
             .unwrap_or_else(|e| panic!("Timeout duration too long: {}", e));
 
-        // Safety: handle is always valid
+        // Safety: no precondition
         let hook = unsafe {
-            ((*self.handle).hexchat_hook_timer)(
-                self.handle,
+            self.raw.hexchat_hook_timer(
                 milliseconds,
                 hook_timer_callback::<P>,
                 callback as *mut c_void,
@@ -1489,8 +1485,8 @@ impl<'ph, P: 'static> PluginHandle<'ph, P> {
     pub fn unhook(self, hook: HookHandle) {
         let hook = hook.into_raw();
 
-        // Safety: handle is always valid; hook is valid due to HookHandle invariant
-        let _ = unsafe { ((*self.handle).hexchat_unhook)(self.handle, hook.as_ptr()) };
+        // Safety: hook is valid due to HookHandle invariant
+        let _ = unsafe { self.raw.hexchat_unhook(hook.as_ptr()) };
     }
 }
 
@@ -1545,9 +1541,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let servname = servname.as_ref().map_or_else(ptr::null, |s| s.as_ptr());
         let channel = channel.as_ref().map_or_else(ptr::null, |c| c.as_ptr());
 
-        // Safety: handle is always valid
-        let context =
-            unsafe { ((*self.handle).hexchat_find_context)(self.handle, servname, channel) };
+        // Safety: `servname` and `channel` are null-terminated C strings or null
+        let context = unsafe { self.raw.hexchat_find_context(servname, channel) };
 
         // Safety: context is either a valid hexchat_context pointer or null
         NonNull::new(context).map(|c| unsafe { ContextHandle::new(c) })
@@ -1582,20 +1577,18 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// }
     /// ```
     pub fn with_context<R>(self, context: ContextHandle<'_>, f: impl FnOnce() -> R) -> R {
-        // Safety: handle is always valid
-        let old_context = unsafe { ((*self.handle).hexchat_get_context)(self.handle) };
+        // Safety: no preconditions
+        let old_context = unsafe { self.raw.hexchat_get_context() };
 
-        // Safety: handle is always valid; context contains a valid pointer
-        int_to_result(unsafe {
-            ((*self.handle).hexchat_set_context)(self.handle, context.as_ptr().as_ptr())
-        })
-        // this should be infallible, since the lifetime on ContextHandle prevents it from being stored,
-        // and it should not be invalidated while our code is running
-        .unwrap_or_else(|_| panic!("Channel invalidated while plugin running"));
+        // Safety: `context` contains a valid context pointer
+        int_to_result(unsafe { self.raw.hexchat_set_context(context.as_ptr().as_ptr()) })
+            // this should be infallible, since the lifetime on ContextHandle prevents it from being stored,
+            // and it should not be invalidated while our code is running
+            .unwrap_or_else(|_| panic!("Channel invalidated while plugin running"));
 
-        // Safety: handle is always valid; old_context is a valid pointer
+        // Safety: `old_context` is a valid context pointer
         defer! {
-            int_to_result(unsafe { ((*self.handle).hexchat_set_context)(self.handle, old_context) })
+            int_to_result(unsafe { self.raw.hexchat_set_context( old_context) })
                 .unwrap_or_else(|_| panic!("Failed to switch back to original context"))
         };
 
@@ -1633,9 +1626,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
             return Err(());
         }
 
-        // Safety: handle is always valid
+        // Safety: `name` and `value` are null-terminated C strings
         int_to_result(unsafe {
-            ((*self.handle).hexchat_pluginpref_set_str)(self.handle, name.as_ptr(), value.as_ptr())
+            self.raw
+                .hexchat_pluginpref_set_str(name.as_ptr(), value.as_ptr())
         })
     }
 
@@ -1691,14 +1685,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
         // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list
         let mut buf = [0; 512];
 
-        // Safety: handle is always valid
+        // Safety: `name` is a null-terminated C string
         // (Un)Safety: no length argument, better hope they never change the 512 max length
         let res = int_to_result(unsafe {
-            ((*self.handle).hexchat_pluginpref_get_str)(
-                self.handle,
-                name.as_ptr(),
-                buf.as_mut_ptr(),
-            )
+            self.raw
+                .hexchat_pluginpref_get_str(name.as_ptr(), buf.as_mut_ptr())
         });
 
         if let Err(()) = res {
@@ -1732,10 +1723,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     pub fn pluginpref_set_int(self, name: &str, value: i32) -> Result<(), ()> {
         let name = name.into_cstr();
 
-        // Safety: handle is always valid
-        int_to_result(unsafe {
-            ((*self.handle).hexchat_pluginpref_set_int)(self.handle, name.as_ptr(), value)
-        })
+        // Safety: `name` is a null-terminated C string
+        int_to_result(unsafe { self.raw.hexchat_pluginpref_set_int(name.as_ptr(), value) })
     }
 
     /// Gets a plugin-specific int preference.
@@ -1755,9 +1744,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     pub fn pluginpref_get_int(self, name: &str) -> Result<i32, ()> {
         let name = name.into_cstr();
 
-        // Safety: handle is always valid
-        let value =
-            unsafe { ((*self.handle).hexchat_pluginpref_get_int)(self.handle, name.as_ptr()) };
+        // Safety: `name` is a null-terminated C string
+        let value = unsafe { self.raw.hexchat_pluginpref_get_int(name.as_ptr()) };
 
         match value {
             -1 => Err(()),
@@ -1783,10 +1771,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     pub fn pluginpref_delete(self, name: &str) -> Result<(), ()> {
         let name = name.into_cstr();
 
-        // Safety: handle is always valid
-        int_to_result(unsafe {
-            ((*self.handle).hexchat_pluginpref_delete)(self.handle, name.as_ptr())
-        })
+        // Safety: `name` is a null-terminated C string
+        int_to_result(unsafe { self.raw.hexchat_pluginpref_delete(name.as_ptr()) })
     }
 
     /// Lists the names of all plugin-specific preferences.
@@ -1862,10 +1848,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
         // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_pluginpref_list
         let mut buf = [0; 4096];
 
-        // Safety: handle is always valid
-        let res = int_to_result(unsafe {
-            ((*self.handle).hexchat_pluginpref_list)(self.handle, buf.as_mut_ptr())
-        });
+        // Safety: `buf` is a correctly-sized char buffer
+        let res = int_to_result(unsafe { self.raw.hexchat_pluginpref_list(buf.as_mut_ptr()) });
 
         if let Err(()) = res {
             return f(Err(()));
@@ -1911,10 +1895,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let desc = desc.into_cstr();
         let version = version.into_cstr();
 
-        // Safety: handle is always valid
+        // Safety: arguments are all null-terminated C strings or null
         let gui = unsafe {
-            ((*self.handle).hexchat_plugingui_add)(
-                self.handle,
+            self.raw.hexchat_plugingui_add(
                 filename.as_ptr(),
                 name.as_ptr(),
                 desc.as_ptr(),
@@ -1938,7 +1921,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     pub fn plugingui_remove(self, gui: FakePluginHandle) {
         let gui = gui.into_raw();
 
-        // Safety: handle is always valid; hook is valid due to HookHandle invariant
-        unsafe { ((*self.handle).hexchat_plugingui_remove)(self.handle, gui.as_ptr()) };
+        // Safety: hook is valid due to HookHandle invariant
+        unsafe { self.raw.hexchat_plugingui_remove(gui.as_ptr()) };
     }
 }
