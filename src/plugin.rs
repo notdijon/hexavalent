@@ -1671,9 +1671,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
             return f(Err(()));
         }
 
-        *buf.last_mut().unwrap() = 0;
-        // Safety: buf is definitely null-terminated; temporary does not outlive buf
-        let str = unsafe { CStr::from_ptr(buf.as_ptr()) }
+        let buf = buf.map(|x| x as u8);
+
+        let str = CStr::from_bytes_until_nul(&buf)
+            .unwrap_or_else(|e| panic!("Buffer overrun in `hexchat_pluginpref_get_str`: {}", e))
             .to_str()
             .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_pluginpref_get_str`: {}", e));
 
@@ -1830,9 +1831,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
             return f(Err(()));
         }
 
-        *buf.last_mut().unwrap() = 0;
-        // Safety: buf is definitely null-terminated; str does not outlive buf
-        let str = unsafe { CStr::from_ptr(buf.as_ptr()) }
+        let buf = buf.map(|x| x as u8);
+
+        let str = CStr::from_bytes_until_nul(&buf)
+            .unwrap_or_else(|e| panic!("Buffer overrun in `hexchat_pluginpref_list`: {}", e))
             .to_str()
             .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_pluginpref_list`: {}", e));
 
