@@ -97,7 +97,6 @@
 #![warn(
     missing_debug_implementations,
     missing_docs,
-    rustdoc::missing_doc_code_examples,
     trivial_numeric_casts,
     unreachable_pub,
     unused_qualifications
