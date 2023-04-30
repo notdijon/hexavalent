@@ -1854,7 +1854,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Adds a fake plugin to the plugin GUI.
     ///
     /// Only useful if your plugin loads other plugins.
-    /// Do not call this function with the same arguments you pass to [`export_plugin`].
+    /// Do not call this function with the same arguments you pass to [`export_plugin`](crate::export_plugin).
     ///
     /// Returns a [`FakePluginHandle`](crate::gui::FakePluginHandle) which must be passed to
     /// [`PluginHandle::plugingui_remove`] to remove the fake plugin.
