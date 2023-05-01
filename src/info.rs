@@ -1,6 +1,6 @@
 //! Context info.
 
-/// Info about the current [context](crate::PluginHandle#impl-3).
+/// Info about the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3).
 ///
 /// Used with [`PluginHandle::get_info`](crate::PluginHandle::get_info).
 ///

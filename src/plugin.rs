@@ -206,7 +206,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
 ///
 /// General functions allow printing text, running commands, creating events, and other miscellaneous operations.
 impl<'ph, P> PluginHandle<'ph, P> {
-    /// Prints text to the current [context](crate::PluginHandle#impl-3). Text may contain mIRC color codes and formatting.
+    /// Prints text to the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3). Text may contain mIRC color codes and formatting.
     ///
     /// Analogous to [`hexchat_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_print).
     ///
@@ -228,7 +228,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         }
     }
 
-    /// Executes a command in the current [context](crate::PluginHandle#impl-3) as if it were typed into HexChat's input box after a `/`.
+    /// Executes a command in the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3) as if it were typed into HexChat's input box after a `/`.
     ///
     /// Analogous to [`hexchat_command`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_command).
     ///
@@ -250,7 +250,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         }
     }
 
-    /// Emits a print event in the current [context](crate::PluginHandle#impl-3).
+    /// Emits a print event in the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3).
     ///
     /// See the [`event::print`](crate::event::print) submodule for a list of print events.
     ///
@@ -302,7 +302,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         })
     }
 
-    /// Emits a print event in the current [context](crate::PluginHandle#impl-3), specifying its attributes.
+    /// Emits a print event in the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3), specifying its attributes.
     ///
     /// See the [`event::print`](crate::event::print) submodule for a list of print events.
     ///
@@ -378,7 +378,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         })
     }
 
-    /// Sends channel mode changes to targets in the current [context](crate::PluginHandle#impl-3).
+    /// Sends channel mode changes to targets in the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3).
     ///
     /// Analogous to [`hexchat_send_modes`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_send_modes).
     ///
@@ -415,7 +415,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         }
     }
 
-    /// Sends channel mode changes to a target in the current [context](crate::PluginHandle#impl-3).
+    /// Sends channel mode changes to a target in the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3).
     ///
     /// Behaves the same as [`PluginHandle::send_modes`],
     /// but is more efficient when you only need to send mode changes to one target.
@@ -546,9 +546,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
 
 /// [Getting Information](https://hexchat.readthedocs.io/en/latest/plugins.html#getting-information)
 ///
-/// Allows you get information about the current [context](crate::PluginHandle#impl-3) or HexChat's settings.
+/// Allows you get information about the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3) or HexChat's settings.
 impl<'ph, P> PluginHandle<'ph, P> {
-    /// Gets information based on the current [context](crate::PluginHandle#impl-3).
+    /// Gets information based on the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3).
     ///
     /// See the [`info`](crate::info) submodule for a list of info types.
     ///
@@ -655,7 +655,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         f(Ok(value))
     }
 
-    /// Gets a list of information, possibly specific to the current [context](crate::PluginHandle#impl-3).
+    /// Gets a list of information, possibly specific to the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3).
     ///
     /// See the [`list`](crate::list) submodule for a list of lists.
     ///
@@ -904,7 +904,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// `words` is limited to 32 elements, and HexChat may provide excess elements, so the length of `words` is not meaningful.
     ///
     /// Note that `callback` is a function pointer, so it cannot capture any variables.
-    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-PluginHandle<'ph,+P>-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_command`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_command).
     ///
@@ -987,7 +987,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// See the [`event::print`](crate::event::print) submodule for a list of print events.
     ///
     /// Note that `callback` is a function pointer, so it cannot capture any variables.
-    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-PluginHandle<'ph,+P>-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_print`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print).
     ///
@@ -1059,7 +1059,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// See the [`event::print`](crate::event::print) submodule for a list of print events.
     ///
     /// Note that `callback` is a function pointer, so it cannot capture any variables.
-    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-PluginHandle<'ph,+P>-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_print_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_print_attrs).
     ///
@@ -1157,7 +1157,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// See the [`event::server`](crate::event::server) submodule for a list of server events.
     ///
     /// Note that `callback` is a function pointer, so it cannot capture any variables.
-    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-PluginHandle<'ph,+P>-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_server`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_server).
     ///
@@ -1232,7 +1232,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// See the [`event::server`](crate::event::server) submodule for a list of server events.
     ///
     /// Note that `callback` is a function pointer, so it cannot capture any variables.
-    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-PluginHandle<'ph,+P>-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_server_attrs`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_server_attrs).
     ///
@@ -1333,7 +1333,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// `callback` will be called at the interval specified by `timeout`, with a resolution of 1 millisecond.
     ///
     /// Note that `callback` is a function pointer, so it cannot capture any variables.
-    /// See the [impl header](crate::PluginHandle#impl-2) for more details.
+    /// See the [impl header](crate::PluginHandle#impl-PluginHandle<'ph,+P>-2) for more details.
     ///
     /// Analogous to [`hexchat_hook_timer`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_hook_timer).
     ///

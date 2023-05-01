@@ -185,7 +185,7 @@ impl super::FromListElemField<i32> for IgnoreFlags {
 list!(
     Notifies,
     "notify",
-    "List of people on notify in the current server [context](crate::PluginHandle#impl-3).",
+    "List of people on notify in the current server [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3).",
     "A nick on notify.",
     Notify {
         ["networks", "Networks to which this nick applies.", string] networks: super::SplitByCommas => impl Iterator<Item = &str>,
@@ -217,7 +217,7 @@ impl super::FromListElemField<i32> for NotifyFlags {
 list!(
     Users,
     "users",
-    "List of users in the current [context](crate::PluginHandle#impl-3).",
+    "List of users in the current [context](crate::PluginHandle#impl-PluginHandle<'ph,+P>-3).",
     "A user.",
     User {
         ["account", "Account name. (HexChat 2.9.6+)", string] account: Option<String> => Option<&str>,
