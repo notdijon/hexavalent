@@ -31,7 +31,7 @@ use crate::event::Event;
 ///     Eat::None
 /// }
 /// ```
-pub trait ServerEvent: for<'a> Event<'a> {}
+pub trait ServerEvent<const ARGS: usize>: Event<ARGS> {}
 
 macro_rules! server_event {
     (
@@ -43,7 +43,7 @@ macro_rules! server_event {
     ) => {
         event!($struct_name, $event_name, $event_doc, $($index : $field_name),* $(; eol $eol_index : $eol_name)?);
 
-        impl crate::event::server::ServerEvent for $struct_name {}
+        impl crate::event::server::ServerEvent<{ count!($($index)* $($eol_index)?) }> for $struct_name {}
     };
 }
 

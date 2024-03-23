@@ -11,10 +11,11 @@ use std::time::Duration;
 use time::OffsetDateTime;
 
 use crate::context::{Context, ContextHandle};
-use crate::cstr::IntoCStr;
+use crate::cstr::private::AsCStrArray;
+use crate::cstr::{IntoCStr, IntoCStrArray};
 use crate::event::print::PrintEvent;
 use crate::event::server::ServerEvent;
-use crate::event::{Event, EventAttrs};
+use crate::event::EventAttrs;
 use crate::ffi::{
     hexchat_event_attrs, hexchat_list, int_to_result, word_to_iter, ListElem, RawPluginHandle,
 };
@@ -248,39 +249,42 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::event::print::ChannelMessage;
     ///
     /// fn print_fake_message<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
-    ///     ph.emit_print(ChannelMessage, [user, text, "@", "$"])
+    ///     ph.emit_print(ChannelMessage, (user, text, c"@", c"$"))
     /// }
     /// ```
-    pub fn emit_print<E: PrintEvent>(
+    pub fn emit_print<E: PrintEvent<N>, const N: usize>(
         self,
         event: E,
-        args: <E as Event<'_>>::Args,
+        // todo this should just pass in E::ARGS directly, but you can't use type params in consts
+        args: impl IntoCStrArray<N>,
     ) -> Result<(), ()> {
         let _ = event;
-        E::args_to_c(args, |args| {
-            assert!(
-                args.len() <= 4,
-                "bug in hexavalent - more than 4 args from PrintEvent"
-            );
 
-            let args: [*const c_char; 4] = [
-                args.get(0).map_or_else(ptr::null, |a| a.as_ptr()),
-                args.get(1).map_or_else(ptr::null, |a| a.as_ptr()),
-                args.get(2).map_or_else(ptr::null, |a| a.as_ptr()),
-                args.get(3).map_or_else(ptr::null, |a| a.as_ptr()),
-            ];
+        let args = args.into_cstrs();
+        let args = args.as_cstr_array();
 
-            // Safety: `NAME` and `args` are null-terminated C strings; vararg list is null-terminated
-            int_to_result(unsafe {
-                self.raw.hexchat_emit_print(
-                    E::NAME,
-                    args[0],
-                    args[1],
-                    args[2],
-                    args[3],
-                    ptr::null::<c_char>(),
-                )
-            })
+        assert!(
+            args.len() <= 4,
+            "bug in hexavalent - more than 4 args from PrintEvent"
+        );
+
+        let args: [*const c_char; 4] = [
+            args.get(0).map_or_else(ptr::null, |a| a.as_ptr()),
+            args.get(1).map_or_else(ptr::null, |a| a.as_ptr()),
+            args.get(2).map_or_else(ptr::null, |a| a.as_ptr()),
+            args.get(3).map_or_else(ptr::null, |a| a.as_ptr()),
+        ];
+
+        // Safety: `NAME` and `args` are null-terminated C strings; vararg list is null-terminated
+        int_to_result(unsafe {
+            self.raw.hexchat_emit_print(
+                E::NAME,
+                args[0],
+                args[1],
+                args[2],
+                args[3],
+                ptr::null::<c_char>(),
+            )
         })
     }
 
@@ -304,59 +308,61 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// # #[cfg(not(feature = "__unstable_ircv3_line_in_event_attrs"))]
     /// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
     ///     let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(86400 * 365 * 10).unwrap());
-    ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@", "$"])
+    ///     ph.emit_print_attrs(ChannelMessage, attrs, (user, text, c"@", c"$"))
     /// }
     /// ```
-    pub fn emit_print_attrs<E: PrintEvent>(
+    pub fn emit_print_attrs<E: PrintEvent<N>, const N: usize>(
         self,
         event: E,
         attrs: EventAttrs<'_>,
-        args: <E as Event<'_>>::Args,
+        args: impl IntoCStrArray<N>,
     ) -> Result<(), ()> {
         let _ = event;
-        E::args_to_c(args, |args| {
-            assert!(
-                args.len() <= 4,
-                "bug in hexavalent - more than 4 args from PrintEvent"
+
+        let args = args.into_cstrs();
+        let args = args.as_cstr_array();
+
+        assert!(
+            args.len() <= 4,
+            "bug in hexavalent - more than 4 args from PrintEvent"
+        );
+
+        let args: [*const c_char; 4] = [
+            args.get(0).map_or_else(ptr::null, |a| a.as_ptr()),
+            args.get(1).map_or_else(ptr::null, |a| a.as_ptr()),
+            args.get(2).map_or_else(ptr::null, |a| a.as_ptr()),
+            args.get(3).map_or_else(ptr::null, |a| a.as_ptr()),
+        ];
+
+        int_to_result(unsafe {
+            // Safety: no preconditions
+            let event_attrs = self.raw.hexchat_event_attrs_create();
+            // Safety: `event_attrs` does not escape`
+            defer! { self.raw.hexchat_event_attrs_free(event_attrs) };
+
+            ptr::write(
+                &mut (*event_attrs).server_time_utc as *mut _,
+                attrs.time().unix_timestamp(),
             );
 
-            let args: [*const c_char; 4] = [
-                args.get(0).map_or_else(ptr::null, |a| a.as_ptr()),
-                args.get(1).map_or_else(ptr::null, |a| a.as_ptr()),
-                args.get(2).map_or_else(ptr::null, |a| a.as_ptr()),
-                args.get(3).map_or_else(ptr::null, |a| a.as_ptr()),
-            ];
+            #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+            let ircv3_line = crate::cstr::private::IntoCStrImpl::into_cstr(attrs.ircv3_line());
+            #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+            ptr::write(
+                &mut (*event_attrs).ircv3_line as *mut _,
+                ircv3_line.as_ptr(),
+            );
 
-            int_to_result(unsafe {
-                // Safety: no preconditions
-                let event_attrs = self.raw.hexchat_event_attrs_create();
-                // Safety: `event_attrs` does not escape`
-                defer! { self.raw.hexchat_event_attrs_free(event_attrs) };
-
-                ptr::write(
-                    &mut (*event_attrs).server_time_utc as *mut _,
-                    attrs.time().unix_timestamp(),
-                );
-
-                #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
-                let ircv3_line = crate::cstr::private::IntoCStrImpl::into_cstr(attrs.ircv3_line());
-                #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
-                ptr::write(
-                    &mut (*event_attrs).ircv3_line as *mut _,
-                    ircv3_line.as_ptr(),
-                );
-
-                // Safety: `event_attrs` is fully initialized; `NAME` and `args` are null-terminated C strings, varags list is null-terminated
-                self.raw.hexchat_emit_print_attrs(
-                    event_attrs,
-                    E::NAME,
-                    args[0],
-                    args[1],
-                    args[2],
-                    args[3],
-                    ptr::null::<c_char>(),
-                )
-            })
+            // Safety: `event_attrs` is fully initialized; `NAME` and `args` are null-terminated C strings, varags list is null-terminated
+            self.raw.hexchat_emit_print_attrs(
+                event_attrs,
+                E::NAME,
+                args[0],
+                args[1],
+                args[2],
+                args[3],
+                ptr::null::<c_char>(),
+            )
         })
     }
 
@@ -992,23 +998,20 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     });
     /// }
     /// ```
-    pub fn hook_print<E: PrintEvent>(
+    pub fn hook_print<E: PrintEvent<N>, const N: usize>(
         self,
         event: E,
         priority: Priority,
-        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: <E as Event<'_>>::Args) -> Eat,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; N]) -> Eat,
     ) -> HookHandle {
-        extern "C" fn hook_print_callback<P: 'static, E: PrintEvent>(
+        extern "C" fn hook_print_callback<P: 'static, E: PrintEvent<N>, const N: usize>(
             word: *mut *mut c_char,
             user_data: *mut c_void,
         ) -> c_int {
             catch_and_log_unwind("hook_print_callback", || {
                 // Safety: this is exactly the type we pass into user_data below
-                let callback: fn(
-                    plugin: &P,
-                    ph: PluginHandle<'_, P>,
-                    args: <E as Event<'_>>::Args,
-                ) -> Eat = unsafe { mem::transmute(user_data) };
+                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; N]) -> Eat =
+                    unsafe { mem::transmute(user_data) };
 
                 // Safety: `word` is a valid word pointer for this entire callback
                 let word = unsafe { word_to_iter(&word) };
@@ -1026,7 +1029,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
             self.raw.hexchat_hook_print(
                 E::NAME,
                 priority as c_int,
-                hook_print_callback::<P, E>,
+                hook_print_callback::<P, E, N>,
                 callback as *mut c_void,
             )
         };
@@ -1063,7 +1066,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     });
     /// }
     /// ```
-    pub fn hook_print_attrs<E: PrintEvent>(
+    pub fn hook_print_attrs<E: PrintEvent<N>, const N: usize>(
         self,
         event: E,
         priority: Priority,
@@ -1071,10 +1074,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
             plugin: &P,
             ph: PluginHandle<'_, P>,
             attrs: EventAttrs<'_>,
-            args: <E as Event<'_>>::Args,
+            args: [&str; N],
         ) -> Eat,
     ) -> HookHandle {
-        extern "C" fn hook_print_attrs_callback<P: 'static, E: PrintEvent>(
+        extern "C" fn hook_print_attrs_callback<P: 'static, E: PrintEvent<N>, const N: usize>(
             word: *mut *mut c_char,
             attrs: *mut hexchat_event_attrs,
             user_data: *mut c_void,
@@ -1085,7 +1088,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
                     plugin: &P,
                     ph: PluginHandle<'_, P>,
                     attrs: EventAttrs<'_>,
-                    args: <E as Event<'_>>::Args,
+                    args: [&str; N],
                 ) -> Eat = unsafe { mem::transmute(user_data) };
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
@@ -1123,7 +1126,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
             self.raw.hexchat_hook_print_attrs(
                 E::NAME,
                 priority as c_int,
-                hook_print_attrs_callback::<P, E>,
+                hook_print_attrs_callback::<P, E, N>,
                 callback as *mut c_void,
             )
         };
@@ -1160,24 +1163,21 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     });
     /// }
     /// ```
-    pub fn hook_server<E: ServerEvent>(
+    pub fn hook_server<E: ServerEvent<N>, const N: usize>(
         self,
         event: E,
         priority: Priority,
-        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: <E as Event<'_>>::Args) -> Eat,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; N]) -> Eat,
     ) -> HookHandle {
-        extern "C" fn hook_server_callback<P: 'static, E: ServerEvent>(
+        extern "C" fn hook_server_callback<P: 'static, E: ServerEvent<N>, const N: usize>(
             word: *mut *mut c_char,
             word_eol: *mut *mut c_char,
             user_data: *mut c_void,
         ) -> c_int {
             catch_and_log_unwind("hook_server_callback", || {
                 // Safety: this is exactly the type we pass into user_data below
-                let callback: fn(
-                    plugin: &P,
-                    ph: PluginHandle<'_, P>,
-                    args: <E as Event<'_>>::Args,
-                ) -> Eat = unsafe { mem::transmute(user_data) };
+                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; N]) -> Eat =
+                    unsafe { mem::transmute(user_data) };
 
                 // Safety: `word` is a valid word pointer for this entire callback
                 let word = unsafe { word_to_iter(&word) };
@@ -1197,7 +1197,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
             self.raw.hexchat_hook_server(
                 E::NAME,
                 priority as c_int,
-                hook_server_callback::<P, E>,
+                hook_server_callback::<P, E, N>,
                 callback as *mut c_void,
             )
         };
@@ -1234,7 +1234,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     });
     /// }
     /// ```
-    pub fn hook_server_attrs<E: ServerEvent>(
+    pub fn hook_server_attrs<E: ServerEvent<N>, const N: usize>(
         self,
         event: E,
         priority: Priority,
@@ -1242,10 +1242,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
             plugin: &P,
             ph: PluginHandle<'_, P>,
             attrs: EventAttrs<'_>,
-            args: <E as Event<'_>>::Args,
+            args: [&str; N],
         ) -> Eat,
     ) -> HookHandle {
-        extern "C" fn hook_server_attrs_callback<P: 'static, E: ServerEvent>(
+        extern "C" fn hook_server_attrs_callback<P: 'static, E: ServerEvent<N>, const N: usize>(
             word: *mut *mut c_char,
             word_eol: *mut *mut c_char,
             attrs: *mut hexchat_event_attrs,
@@ -1257,7 +1257,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
                     plugin: &P,
                     ph: PluginHandle<'_, P>,
                     attrs: EventAttrs<'_>,
-                    args: <E as Event<'_>>::Args,
+                    args: [&str; N],
                 ) -> Eat = unsafe { mem::transmute(user_data) };
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
@@ -1297,7 +1297,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
             self.raw.hexchat_hook_server_attrs(
                 E::NAME,
                 priority as c_int,
-                hook_server_attrs_callback::<P, E>,
+                hook_server_attrs_callback::<P, E, N>,
                 callback as *mut c_void,
             )
         };

@@ -50,14 +50,7 @@ impl<'a> EventAttrs<'a> {
 /// See the [`PrintEvent`](print::PrintEvent) and [`ServerEvent`](server::ServerEvent) traits for usage.
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
-pub trait Event<'a>: private::EventImpl<'a>
-where
-    Self::Args: From<Self::ArgsImpl>,
-    Self::Args: Into<Self::ArgsImpl>,
-{
-    /// The arguments associated with this event.
-    type Args: AsRef<[&'a str]>;
-}
+pub trait Event<const ARGS: usize>: private::EventImpl<ARGS> {}
 
 pub(crate) mod private {
     use std::ffi::CStr;
@@ -68,12 +61,7 @@ pub(crate) mod private {
     /// # Safety
     ///
     /// See safety comments on each member.
-    pub unsafe trait EventImpl<'a> {
-        /// The arguments associated with this event.
-        ///
-        /// Should be the same as `<Self as Event<'a>::Args`.
-        type ArgsImpl;
-
+    pub unsafe trait EventImpl<const ARGS: usize> {
         /// The event's name.
         ///
         /// # Safety
@@ -81,27 +69,39 @@ pub(crate) mod private {
         /// Must point to a valid, null-terminated C-style string.
         const NAME: *const c_char;
 
-        /// Converts this event's args to C-style strings.
-        fn args_to_c<R>(args: impl Into<Self::ArgsImpl>, f: impl FnOnce(&[&CStr]) -> R) -> R;
-
         /// Converts an array of C-style strings to this event's args.
         ///
         /// # Panics
         ///
         /// If `word` or `word_eol` contains invalid UTF8.
-        fn args_from_words<R: From<Self::ArgsImpl>>(
-            word: impl Iterator<Item = &'a ::std::ffi::CStr>,
-            word_eol: impl Iterator<Item = &'a ::std::ffi::CStr>,
-        ) -> R;
+        fn args_from_words<'a>(
+            word: impl Iterator<Item = &'a CStr>,
+            word_eol: impl Iterator<Item = &'a CStr>,
+        ) -> [&'a str; ARGS];
     }
 }
 
+// This uses individual cases returning literals because rustdoc generates
+// really bad output for macros returning expressions--it will just show the raw macro invocation,
+// which is completely useless to a user. But if the macro returns a literal, it will show that.
 macro_rules! count {
     () => {
         0
     };
-    ($x:tt $($xs:tt)*) => {
-        1 + count!($($xs)*)
+    ($a:tt) => {
+        1
+    };
+    ($a:tt $b:tt) => {
+        2
+    };
+    ($a:tt $b:tt $c:tt) => {
+        3
+    };
+    ($a:tt $b:tt $c:tt $d:tt) => {
+        4
+    };
+    ($a:tt $b:tt $c:tt $d:tt $e:tt) => {
+        5
     };
 }
 
@@ -119,69 +119,38 @@ macro_rules! event {
         #[doc = ""]
         #[doc = $event_doc]
         #[doc = ""]
-        #[doc = "Fields: "]
-        #[doc = "`[`"]
+        #[doc = "# Fields"]
         $(
-            #[doc = "`"]
+            #[doc = ""]
+            #[doc = "- `"]
             #[doc = $field_name]
-            #[doc = "`, "]
+            #[doc = "`"]
         )*
         $(
-            #[doc = "`"]
+            #[doc = ""]
+            #[doc = "- `"]
             #[doc = $eol_name]
-            #[doc = "`, "]
+            #[doc = "`"]
         )?
-        #[doc = "`]`."]
         #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
-        impl $struct_name {
-            const FIELD_COUNT: usize = count!($($index)* $($eol_index)?);
-        }
+        impl crate::event::Event<{ count!($($index)* $($eol_index)?) }> for $struct_name {}
 
-        impl<'a> crate::event::Event<'a> for $struct_name {
-            $(
-                #[doc = ""]
-                #[doc = "`"]
-                #[doc = $field_name]
-                #[doc = "`, "]
-            )*
-            $(
-                #[doc = ""]
-                #[doc = "`"]
-                #[doc = $eol_name]
-                #[doc = "`, "]
-            )?
-            type Args = [&'a str; Self::FIELD_COUNT];
-        }
-
-        unsafe impl<'a> crate::event::private::EventImpl<'a> for $struct_name {
-            type ArgsImpl = [&'a str; Self::FIELD_COUNT];
-
+        unsafe impl crate::event::private::EventImpl<{ count!($($index)* $($eol_index)?) }> for $struct_name {
             // Safety: this string is null-terminated and static
             const NAME: *const ::std::os::raw::c_char = concat!($event_name, "\0").as_ptr().cast();
 
-            #[allow(unused_variables)]
-            fn args_to_c<R>(args: impl Into<Self::ArgsImpl>, f: impl FnOnce(&[&::std::ffi::CStr]) -> R) -> R {
-                let args: Self::ArgsImpl = args.into();
-                let args = (
-                    $(crate::cstr::private::IntoCStrImpl::into_cstr(args[$index]),)*
-                    $(crate::cstr::private::IntoCStrImpl::into_cstr(args[$eol_index]),)?
-                );
-                let args = [
-                    $(args.$index.as_ref(),)*
-                    $(args.$eol_index.as_ref(),)?
-                ];
-                f(&args)
-            }
-
+            #[allow(dead_code)]
             #[allow(unused_variables)]
             #[allow(unused_mut)]
-            fn args_from_words<R: From<Self::ArgsImpl>>(
+            fn args_from_words<'a>(
                 mut word: impl Iterator<Item = &'a ::std::ffi::CStr>,
                 mut word_eol: impl Iterator<Item = &'a ::std::ffi::CStr>,
-            ) -> R {
-                let args = [
+            ) -> [&'a str; { count!($($index)* $($eol_index)?) }] {
+                const ARGS: usize = count!($($index)* $($eol_index)?);
+
+                [
                     $(
                         word
                             .next()
@@ -189,7 +158,7 @@ macro_rules! event {
                                 panic!(
                                     "Insufficient fields in event '{}': expected {}, found {}",
                                      $event_name,
-                                     Self::FIELD_COUNT,
+                                     ARGS,
                                      $index,
                                  )
                             })
@@ -210,7 +179,7 @@ macro_rules! event {
                                 panic!(
                                     "Insufficient fields in event '{}': expected {}, found {}",
                                      $event_name,
-                                     Self::FIELD_COUNT,
+                                     ARGS,
                                      $eol_index,
                                  )
                             })
@@ -224,8 +193,7 @@ macro_rules! event {
                                 )
                             }),
                     )?
-                ];
-                R::from(args)
+                ]
             }
         }
     };

@@ -22,7 +22,7 @@ use crate::event::Event;
 /// use hexavalent::event::print::ChannelMessage;
 ///
 /// fn print_welcome_message<P>(ph: PluginHandle<'_, P>) -> Result<(), ()> {
-///     ph.emit_print(ChannelMessage, ["hexavalent", "Plugin started!", "@", ""])
+///     ph.emit_print(ChannelMessage, [c"hexavalent", c"Plugin started!", c"@", c""])
 /// }
 /// ```
 ///
@@ -43,7 +43,7 @@ use crate::event::Event;
 ///     });
 /// }
 /// ```
-pub trait PrintEvent: for<'a> Event<'a> {}
+pub trait PrintEvent<const ARGS: usize>: Event<ARGS> {}
 
 macro_rules! print_event {
     (
@@ -54,7 +54,7 @@ macro_rules! print_event {
     ) => {
         event!($struct_name, $event_name, $event_doc, $($index : $field_name),*);
 
-        impl crate::event::print::PrintEvent for $struct_name {}
+        impl crate::event::print::PrintEvent<{ count!($($index)*) }> for $struct_name {}
     };
 }
 
