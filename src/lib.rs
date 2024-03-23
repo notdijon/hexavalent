@@ -90,6 +90,7 @@
 //! which can help detect misbehavior.
 
 #![allow(
+    clippy::get_first,
     clippy::result_unit_err,
     clippy::too_many_arguments,
     clippy::type_complexity
