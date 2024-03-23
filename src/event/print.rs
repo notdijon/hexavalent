@@ -34,16 +34,13 @@ use crate::event::Event;
 /// use hexavalent::hook::{Eat, Priority};
 ///
 /// fn hook_message<P>(ph: PluginHandle<'_, P>) {
-///     ph.hook_print(ChannelMessage, Priority::Normal, message_cb);
-/// }
-///
-/// fn message_cb<P>(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; 4]) -> Eat {
-///     let [nick, text, mode, ident] = args;
-///     ph.print(format!(
-///         "Message from {} (with mode '{}', ident '{}'): {}",
-///         nick, mode, ident, text
-///     ));
-///     Eat::HexChat
+///     ph.hook_print(ChannelMessage, Priority::Normal, |plugin, ph, [nick, text, mode, ident]| {
+///         ph.print(format!(
+///             "Message from {} (with mode '{}', ident '{}'): {}",
+///             nick, mode, ident, text
+///         ));
+///         Eat::HexChat
+///     });
 /// }
 /// ```
 pub trait PrintEvent: for<'a> Event<'a> {}
