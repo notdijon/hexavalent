@@ -11,12 +11,12 @@ use std::time::Duration;
 use time::OffsetDateTime;
 
 use crate::context::{Context, ContextHandle};
+use crate::cstr::IntoCStr;
 use crate::event::print::PrintEvent;
 use crate::event::server::ServerEvent;
 use crate::event::{Event, EventAttrs};
 use crate::ffi::{
     hexchat_event_attrs, hexchat_list, int_to_result, word_to_iter, ListElem, RawPluginHandle,
-    StrExt,
 };
 use crate::gui::FakePluginHandle;
 use crate::hook::{Eat, HookHandle, Priority, Timer};
@@ -74,19 +74,19 @@ use crate::strip::{MircColors, StrippedStr, TextAttrs};
 ///
 ///         let messages = self.messages.get();
 ///         let avg_msgs = messages as f64 / (elapsed.as_secs_f64() / 60.);
-///         ph.print(&format!("Messages: {} ({:.1}/min).\0", messages, avg_msgs));
+///         ph.print(format!("Messages: {} ({:.1}/min).", messages, avg_msgs));
 ///
 ///         let characters = self.characters.get();
 ///         let avg_chars = characters as f64 / messages as f64;
-///         ph.print(&format!("Characters: {} ({:.1}/msg).\0", characters, avg_chars));
+///         ph.print(format!("Characters: {} ({:.1}/msg).", characters, avg_chars));
 ///     }
 /// }
 ///
 /// impl Plugin for StatsPlugin {
 ///     fn init(&self, ph: PluginHandle<'_, Self>) {
 ///         ph.hook_command(
-///             "stats\0",
-///             "Usage: STATS, print message statistics\0",
+///             c"stats",
+///             c"Usage: STATS, print message statistics",
 ///             Priority::Normal,
 ///             |plugin, ph, words| {
 ///                 plugin.print_stats(ph);
@@ -97,7 +97,7 @@ use crate::strip::{MircColors, StrippedStr, TextAttrs};
 ///     }
 ///
 ///     fn deinit(&self, ph: PluginHandle<'_, Self>) {
-///         ph.print("Overall stats:\0");
+///         ph.print(c"Overall stats:");
 ///         self.print_stats(ph);
 ///     }
 /// }
@@ -120,7 +120,7 @@ pub trait Plugin: Default + 'static {
     ///
     /// impl Plugin for MyPlugin {
     ///     fn init(&self, ph: PluginHandle<'_, Self>) {
-    ///         ph.print("Plugin loaded successfully!\0");
+    ///         ph.print(c"Plugin loaded successfully!");
     ///     }
     /// }
     /// ```
@@ -148,7 +148,7 @@ pub trait Plugin: Default + 'static {
     ///     fn init(&self, _: PluginHandle<'_, Self>) {}
     ///
     ///     fn deinit(&self, ph: PluginHandle<'_, Self>) {
-    ///         ph.print("Plugin unloading...\0");
+    ///         ph.print(c"Plugin unloading...");
     ///     }
     /// }
     /// ```
@@ -163,23 +163,6 @@ pub trait Plugin: Default + 'static {
 ///
 /// Most of HexChat's [functions](https://hexchat.readthedocs.io/en/latest/plugins.html#functions) are available as associated functions,
 /// without the `hexchat_` prefix.
-///
-/// # Examples
-///
-/// All functions which take `&str`/`impl AsRef<str>` arguments will allocate if the string is not null-terminated,
-/// and panic if the string contains interior nulls.
-///
-/// ```rust
-/// # use hexavalent::PluginHandle;
-/// # fn print_some_stuff<P>(ph: PluginHandle<'_, P>) {
-/// // for example, this would not allocate
-/// ph.print("hello\0");
-/// // ...this would allocate
-/// ph.print("hello");
-/// // ...and this would panic
-/// ph.print("hel\0lo");
-/// # }
-/// ```
 #[derive(Debug)]
 pub struct PluginHandle<'ph, P: 'static> {
     pub(crate) raw: RawPluginHandle<'ph>,
@@ -216,11 +199,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     ///
     /// fn say_hello<P>(ph: PluginHandle<'_, P>) {
-    ///     // null-termination is not required, but avoids allocation
-    ///     ph.print("hello!\0");
+    ///     ph.print(c"hello!");
     /// }
     /// ```
-    pub fn print(self, text: &str) {
+    pub fn print(self, text: impl IntoCStr) {
         let text = text.into_cstr();
         // Safety: `text` is a null-terminated C string
         unsafe {
@@ -239,10 +221,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// fn op_user<P>(ph: PluginHandle<'_, P>, username: &str) {
     ///     // do not include the leading slash
-    ///     ph.command(&format!("OP {}\0", username));
+    ///     ph.command(format!("OP {}", username));
     /// }
     /// ```
-    pub fn command(self, cmd: &str) {
+    pub fn command(self, cmd: impl IntoCStr) {
         let cmd = cmd.into_cstr();
         // Safety: `cmd` is a null-terminated C string
         unsafe {
@@ -266,7 +248,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::event::print::ChannelMessage;
     ///
     /// fn print_fake_message<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
-    ///     ph.emit_print(ChannelMessage, [user, text, "@\0", "$\0"])
+    ///     ph.emit_print(ChannelMessage, [user, text, "@", "$"])
     /// }
     /// ```
     pub fn emit_print<E: PrintEvent>(
@@ -322,7 +304,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// # #[cfg(not(feature = "__unstable_ircv3_line_in_event_attrs"))]
     /// fn print_fake_message_like_its_1979<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
     ///     let attrs = EventAttrs::new(OffsetDateTime::from_unix_timestamp(86400 * 365 * 10).unwrap());
-    ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@\0", "$\0"])
+    ///     ph.emit_print_attrs(ChannelMessage, attrs, [user, text, "@", "$"])
     /// }
     /// ```
     pub fn emit_print_attrs<E: PrintEvent>(
@@ -357,7 +339,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
                 );
 
                 #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
-                let ircv3_line = attrs.ircv3_line().into_cstr();
+                let ircv3_line = crate::cstr::private::IntoCStrImpl::into_cstr(attrs.ircv3_line());
                 #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
                 ptr::write(
                     &mut (*event_attrs).ircv3_line as *mut _,
@@ -390,11 +372,16 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// fn op_users<P>(ph: PluginHandle<'_, P>, users: &[&str]) {
     ///     // sends `MODE <users> +o`
-    ///     ph.send_modes(users, Sign::Add, b'o');
+    ///     ph.send_modes(users.into_iter().copied(), Sign::Add, b'o');
     /// }
     /// ```
-    pub fn send_modes(self, targets: &[impl AsRef<str>], sign: Sign, mode_char: u8) {
-        let targets: Vec<_> = targets.iter().map(|t| t.as_ref().into_cstr()).collect();
+    pub fn send_modes(
+        self,
+        targets: impl IntoIterator<Item = impl IntoCStr>,
+        sign: Sign,
+        mode_char: u8,
+    ) {
+        let targets: Vec<_> = targets.into_iter().map(|t| t.into_cstr()).collect();
         let mut targets: Vec<*const c_char> = targets.iter().map(|t| t.as_ptr()).collect();
         let ntargets = targets
             .len()
@@ -433,7 +420,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     ph.send_mode(user, Sign::Remove, b'b');
     /// }
     /// ```
-    pub fn send_mode(self, target: &str, sign: Sign, mode_char: u8) {
+    pub fn send_mode(self, target: impl IntoCStr, sign: Sign, mode_char: u8) {
         let target = target.into_cstr();
         let mut targets: [*const c_char; 1] = [target.as_ptr()];
         let ntargets = 1;
@@ -472,11 +459,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// ```rust
     /// use hexavalent::PluginHandle;
     ///
-    /// fn sort_nicknames<P>(ph: PluginHandle<'_, P>, nicks: &mut [impl AsRef<str>]) {
-    ///     nicks.sort_by(|n1, n2| ph.nickcmp(n1.as_ref(), n2.as_ref()));
+    /// fn sort_nicknames<P>(ph: PluginHandle<'_, P>, nicks: &mut [&str]) {
+    ///     nicks.sort_by(|n1, n2| ph.nickcmp(*n1, *n2));
     /// }
     /// ```
-    pub fn nickcmp(self, s1: &str, s2: &str) -> Ordering {
+    pub fn nickcmp(self, s1: impl IntoCStr, s2: impl IntoCStr) -> Ordering {
         let s1 = s1.into_cstr();
         let s2 = s2.into_cstr();
 
@@ -508,7 +495,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// ```
     pub fn strip(
         self,
-        str: &str,
+        str: impl IntoCStr,
         mirc: MircColors,
         attrs: TextAttrs,
     ) -> Result<StrippedStr<'ph>, ()> {
@@ -610,8 +597,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// fn print_nick_setting<P>(ph: PluginHandle<'_, P>) {
     ///     match ph.get_pref(IrcNick1) {
-    ///         Ok(nick) => ph.print(&format!("Current nickname setting is: {}\0", nick)),
-    ///         Err(()) => ph.print("Failed to get nickname!\0"),
+    ///         Ok(nick) => ph.print(format!("Current nickname setting is: {}", nick)),
+    ///         Err(()) => ph.print(c"Failed to get nickname!"),
     ///     }
     /// }
     ///
@@ -671,26 +658,26 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// fn print_all_users_in_all_channels<P>(ph: PluginHandle<'_, P>) {
     ///     let channels = match ph.get_list(Channels) {
     ///         Ok(channels) => channels,
-    ///         Err(()) => return ph.print("Failed to get channels!\0"),
+    ///         Err(()) => return ph.print(c"Failed to get channels!"),
     ///     };
     ///     for channel in channels {
-    ///         let ctxt = match ph.find_context(Context::FullyQualified { servname: channel.servname(), channel: channel.name() }) {
+    ///         let ctxt = match ph.find_context(Context::fully_qualified(channel.servname(), channel.name())) {
     ///             Some(ctxt) => ctxt,
     ///             None => {
-    ///                 ph.print(&format!("Failed to find channel {} on server {}, skipping.\0", channel.name(), channel.servname()));
+    ///                 ph.print(format!("Failed to find channel {} on server {}, skipping.", channel.name(), channel.servname()));
     ///                 continue;
     ///             }
     ///         };
     ///         let users = match ph.with_context(ctxt, || ph.get_list(Users)) {
     ///             Ok(users) => users,
     ///             Err(()) => {
-    ///                 ph.print(&format!("Failed to find users in {} on server {}, skipping.\0", channel.name(), channel.servname()));
+    ///                 ph.print(format!("Failed to find users in {} on server {}, skipping.", channel.name(), channel.servname()));
     ///                 continue;
     ///             }
     ///         };
-    ///         ph.print(&format!("Users in {} on {}:\0", channel.name(), channel.servname()));
+    ///         ph.print(format!("Users in {} on {}:", channel.name(), channel.servname()));
     ///         for user in users {
-    ///             ph.print(&format!("  {}{}", user.prefix().unwrap_or(' '), user.nick()));
+    ///             ph.print(format!("  {}{}", user.prefix().unwrap_or(' '), user.nick()));
     ///         }
     ///     }
     /// }
@@ -816,12 +803,12 @@ impl<'ph, P> PluginHandle<'ph, P> {
 /// fn add_counting_command(ph: PluginHandle<'_, MyPlugin>) {
 ///     let mut count = 0;
 ///     ph.hook_command(
-///         "count\0",
-///         "Usage: COUNT, counts the number of times this command was used\0",
+///         c"count",
+///         c"Usage: COUNT, counts the number of times this command was used",
 ///         Priority::Normal,
 ///         |plugin, ph, words| {
 ///             count += 1;
-///             ph.print(&format!("Called {} time(s)!\0", count));
+///             ph.print(format!("Called {} time(s)!", count));
 ///             Eat::All
 ///         }
 ///     );
@@ -845,12 +832,12 @@ impl<'ph, P> PluginHandle<'ph, P> {
 ///
 /// fn add_counting_command(ph: PluginHandle<'_, MyPlugin>) {
 ///     ph.hook_command(
-///         "count\0",
-///         "Usage: COUNT, counts the number of times this command was used\0",
+///         c"count",
+///         c"Usage: COUNT, counts the number of times this command was used",
 ///         Priority::Normal,
 ///         |plugin, ph, words| {
 ///             plugin.count.set(plugin.count.get() + 1);
-///             ph.print(&format!("Called {} time(s)!\0", plugin.count.get()));
+///             ph.print(format!("Called {} time(s)!", plugin.count.get()));
 ///             Eat::All
 ///         }
 ///     );
@@ -870,28 +857,27 @@ impl<'ph, P> PluginHandle<'ph, P> {
 /// }
 ///
 /// fn add_map_command(ph: PluginHandle<'_, MyPlugin>) {
-///     ph.hook_command("map_set\0", "Usage: MAP_SET <k> <v>\0", Priority::Normal, |plugin, ph, words| {
+///     ph.hook_command(c"map_set", c"Usage: MAP_SET <k> <v>", Priority::Normal, |plugin, ph, words| {
 ///         let key = words[1].to_string();
 ///         let val = words[2].to_string();
 ///         plugin.map.borrow_mut().insert(key, val);
 ///         Eat::All
 ///     });
-///     ph.hook_command("map_del\0", "Usage: MAP_DEL <k>\0", Priority::Normal, |plugin, ph, words| {
+///     ph.hook_command(c"map_del", c"Usage: MAP_DEL <k>", Priority::Normal, |plugin, ph, words| {
 ///         let key = words[1];
 ///         plugin.map.borrow_mut().remove(key);
 ///         Eat::All
 ///     });
-///     ph.hook_command("map_get\0", "Usage: MAP_GET <k>\0", Priority::Normal, |plugin, ph, words| {
+///     ph.hook_command(c"map_get", c"Usage: MAP_GET <k>", Priority::Normal, |plugin, ph, words| {
 ///         let key = words[1];
 ///         match plugin.map.borrow().get(key) {
-///             Some(val) => ph.print(&format!("map['{}']: '{}'\0", key, val)),
-///             None => ph.print(&format!("map['{}']: <not found>\0", key)),
+///             Some(val) => ph.print(format!("map['{}']: '{}'", key, val)),
+///             None => ph.print(format!("map['{}']: <not found>", key)),
 ///         }
 ///         Eat::All
 ///     });
 /// }
 /// ```
-///
 impl<'ph, P> PluginHandle<'ph, P> {
     /// Registers a command hook with HexChat.
     ///
@@ -917,11 +903,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// fn add_greeting_command(ph: PluginHandle<'_, MyPlugin>) {
     ///     ph.hook_command(
-    ///         "greet\0",
-    ///         "Usage: GREET <name>, prints a greeting locally\0",
+    ///         c"greet",
+    ///         c"Usage: GREET <name>, prints a greeting locally",
     ///         Priority::Normal,
     ///         |plugin, ph, words| {
-    ///             ph.print(&format!("Hello {}!\0", words[1]));
+    ///             ph.print(format!("Hello {}!", words[1]));
     ///             Eat::All
     ///         }
     ///     );
@@ -929,8 +915,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// ```
     pub fn hook_command(
         self,
-        name: &str,
-        help_text: &str,
+        name: impl IntoCStr,
+        help_text: impl IntoCStr,
         priority: Priority,
         callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> Eat,
     ) -> HookHandle {
@@ -1001,7 +987,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// fn hook_you_part(ph: PluginHandle<'_, MyPlugin>) {
     ///     ph.hook_print(YouPartWithReason, Priority::Normal, |plugin, ph, args| {
     ///         let [your_nick, your_host, channel, reason] = args;
-    ///         ph.print(&format!("You left channel {}: {}.", channel, reason));
+    ///         ph.print(format!("You left channel {}: {}.", channel, reason));
     ///         Eat::HexChat
     ///     });
     /// }
@@ -1072,7 +1058,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// fn hook_you_part(ph: PluginHandle<'_, MyPlugin>) {
     ///     ph.hook_print_attrs(YouPartWithReason, Priority::Normal, |plugin, ph, attrs, args| {
     ///         let [your_nick, your_host, channel, reason] = args;
-    ///         ph.print(&format!("You left channel {} at {}: {}.", channel, attrs.time(), reason));
+    ///         ph.print(format!("You left channel {} at {}: {}.", channel, attrs.time(), reason));
     ///         Eat::HexChat
     ///     });
     /// }
@@ -1169,7 +1155,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// fn hook_part(ph: PluginHandle<'_, MyPlugin>) {
     ///     ph.hook_server(Part, Priority::Normal, |plugin, ph, args| {
     ///         let [sender, _, channel, reason] = args;
-    ///         ph.print(&format!("{} left channel {}: {}.", sender, channel, reason));
+    ///         ph.print(format!("{} left channel {}: {}.", sender, channel, reason));
     ///         Eat::None
     ///     });
     /// }
@@ -1243,7 +1229,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// fn hook_part(ph: PluginHandle<'_, MyPlugin>) {
     ///     ph.hook_server_attrs(Part, Priority::Normal, |plugin, ph, attrs, args| {
     ///         let [sender, _, channel, reason] = args;
-    ///         ph.print(&format!("{} left channel {} at {}: {}.", sender, channel, attrs.time(), reason));
+    ///         ph.print(format!("{} left channel {} at {}: {}.", sender, channel, attrs.time(), reason));
     ///         Eat::None
     ///     });
     /// }
@@ -1352,17 +1338,17 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     ///     ph.hook_timer(Duration::from_secs(5), |plugin, ph| {
     ///         if plugin.should_run.get() {
-    ///             ph.print("Annoying message! Type /stop to stop.\0");
+    ///             ph.print(c"Annoying message! Type /stop to stop.");
     ///             Timer::Continue
     ///         } else {
-    ///             ph.print("This is the last annoying message!\0");
+    ///             ph.print(c"This is the last annoying message!");
     ///             Timer::Stop
     ///         }
     ///     });
     ///
     ///     ph.hook_command(
-    ///         "stop\0",
-    ///         "Usage: STOP, stops being annoying\0",
+    ///         c"stop",
+    ///         c"Usage: STOP, stops being annoying",
     ///         Priority::Normal,
     ///         |plugin, ph, words| {
     ///             if plugin.should_run.get() {
@@ -1436,11 +1422,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// impl Plugin for MyPlugin {
     ///     fn init(&self, ph: PluginHandle<'_, Self>) {
     ///         let hook = ph.hook_command(
-    ///             "thisCommandOnlyWorksOnce\0",
-    ///             "Usage: THISCOMMANDONLYWORKSONCE <args...>, this command only works once\0",
+    ///             c"thisCommandOnlyWorksOnce",
+    ///             c"Usage: THISCOMMANDONLYWORKSONCE <args...>, this command only works once",
     ///             Priority::Normal,
     ///             |plugin, ph, words| {
-    ///                 ph.print(&format!("You'll only see this once: {}\0", words.join("|")));
+    ///                 ph.print(format!("You'll only see this once: {}", words.join("|")));
     ///                 if let Some(hook) = plugin.cmd_handle.take() {
     ///                     ph.unhook(hook);
     ///                 }
@@ -1486,26 +1472,20 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::context::Context;
     ///
     /// fn find_context_example<P>(ph: PluginHandle<'_, P>) {
-    ///     if let Some(ctxt) = ph.find_context(Context::Focused) {
-    ///         ph.with_context(ctxt, || ph.print("This tab is focused!\0"));
+    ///     if let Some(ctxt) = ph.find_context(Context::focused()) {
+    ///         ph.with_context(ctxt, || ph.print(c"This tab is focused!"));
     ///     }
-    ///     if let Some(ctxt) = ph.find_context(Context::Nearby { channel: "#help\0" }) {
-    ///         ph.with_context(ctxt, || ph.print("This tab is #help!\0"));
+    ///     if let Some(ctxt) = ph.find_context(Context::channel(c"#help")) {
+    ///         ph.with_context(ctxt, || ph.print(c"This tab is #help!"));
     ///     }
-    ///     if let Some(ctxt) = ph.find_context(Context::Frontmost { servname: "Snoonet\0" }) {
-    ///         ph.with_context(ctxt, || ph.print("This tab is frontmost on snoonet!\0"));
+    ///     if let Some(ctxt) = ph.find_context(Context::frontmost("Snoonet")) {
+    ///         ph.with_context(ctxt, || ph.print("This tab is frontmost on snoonet!"));
     ///     }
     /// }
     /// ```
-    pub fn find_context(self, find: Context<'_>) -> Option<ContextHandle<'ph>> {
-        let (servname, channel) = match find {
-            Context::Focused => (None, None),
-            Context::Nearby { channel } => (None, Some(channel.into_cstr())),
-            Context::Frontmost { servname } => (Some(servname.into_cstr()), None),
-            Context::FullyQualified { servname, channel } => {
-                (Some(servname.into_cstr()), Some(channel.into_cstr()))
-            }
-        };
+    pub fn find_context<S: IntoCStr>(self, find: Context<S>) -> Option<ContextHandle<'ph>> {
+        let servname = find.servname.map(|s| s.into_cstr());
+        let channel = find.channel.map(|c| c.into_cstr());
 
         let servname = servname.as_ref().map_or_else(ptr::null, |s| s.as_ptr());
         let channel = channel.as_ref().map_or_else(ptr::null, |c| c.as_ptr());
@@ -1535,7 +1515,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     channel: &str,
     ///     message: &str,
     /// ) -> Result<(), ()> {
-    ///     let ctxt = match ph.find_context(Context::Nearby { channel }) {
+    ///     let ctxt = match ph.find_context(Context::channel(channel)) {
     ///         Some(ctxt) => ctxt,
     ///         None => return Err(()),
     ///     };
@@ -1581,10 +1561,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     ///
     /// fn save_str<P>(ph: PluginHandle<'_, P>) -> Result<(), ()> {
-    ///     ph.pluginpref_set_str("myvar1\0", "something important\0")
+    ///     ph.pluginpref_set_str(c"myvar1", c"something important")
     /// }
     /// ```
-    pub fn pluginpref_set_str(self, name: &str, value: &str) -> Result<(), ()> {
+    pub fn pluginpref_set_str(self, name: impl IntoCStr, value: impl IntoCStr) -> Result<(), ()> {
         let name = name.into_cstr();
         let value = value.into_cstr();
 
@@ -1614,11 +1594,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     ///
     /// fn load_str<P>(ph: PluginHandle<'_, P>) {
-    ///     let pref = ph.pluginpref_get_str("myvar1\0");
+    ///     let pref = ph.pluginpref_get_str(c"myvar1");
     ///     assert_eq!(pref.unwrap(), "something important");
     /// }
     /// ```
-    pub fn pluginpref_get_str(self, name: &str) -> Result<String, ()> {
+    pub fn pluginpref_get_str(self, name: impl IntoCStr) -> Result<String, ()> {
         self.pluginpref_get_str_with(name, |pref| pref.map(ToOwned::to_owned))
     }
 
@@ -1637,14 +1617,14 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     ///
     /// fn load_str<P>(ph: PluginHandle<'_, P>) {
-    ///     ph.pluginpref_get_str_with("myvar1\0", |pref| {
+    ///     ph.pluginpref_get_str_with(c"myvar1", |pref| {
     ///         assert_eq!(pref, Ok("something important"));
     ///     });
     /// }
     /// ```
     pub fn pluginpref_get_str_with<R>(
         self,
-        name: &str,
+        name: impl IntoCStr,
         f: impl FnOnce(Result<&str, ()>) -> R,
     ) -> R {
         let name = name.into_cstr();
@@ -1687,10 +1667,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     ///
     /// fn save_int<P>(ph: PluginHandle<'_, P>) -> Result<(), ()> {
-    ///     ph.pluginpref_set_int("answer\0", 42)
+    ///     ph.pluginpref_set_int(c"answer", 42)
     /// }
     /// ```
-    pub fn pluginpref_set_int(self, name: &str, value: i32) -> Result<(), ()> {
+    pub fn pluginpref_set_int(self, name: impl IntoCStr, value: i32) -> Result<(), ()> {
         let name = name.into_cstr();
 
         // Safety: `name` is a null-terminated C string
@@ -1707,11 +1687,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     ///
     /// fn load_int<P>(ph: PluginHandle<'_, P>) {
-    ///     let pref = ph.pluginpref_get_int("answer\0");
+    ///     let pref = ph.pluginpref_get_int(c"answer");
     ///     assert_eq!(pref, Ok(42));
     /// }
     /// ```
-    pub fn pluginpref_get_int(self, name: &str) -> Result<i32, ()> {
+    pub fn pluginpref_get_int(self, name: impl IntoCStr) -> Result<i32, ()> {
         let name = name.into_cstr();
 
         // Safety: `name` is a null-terminated C string
@@ -1735,10 +1715,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// use hexavalent::PluginHandle;
     ///
     /// fn remove_answer<P>(ph: PluginHandle<'_, P>) -> Result<(), ()> {
-    ///     ph.pluginpref_delete("answer\0")
+    ///     ph.pluginpref_delete(c"answer")
     /// }
     /// ```
-    pub fn pluginpref_delete(self, name: &str) -> Result<(), ()> {
+    pub fn pluginpref_delete(self, name: impl IntoCStr) -> Result<(), ()> {
         let name = name.into_cstr();
 
         // Safety: `name` is a null-terminated C string
@@ -1759,16 +1739,16 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// fn print_all_prefs<P>(ph: PluginHandle<'_, P>) {
     ///     let prefs = match ph.pluginpref_list() {
     ///         Ok(prefs) => prefs,
-    ///         Err(()) => return ph.print("Failed to list plugin preferences!\0"),
+    ///         Err(()) => return ph.print(c"Failed to list plugin preferences!"),
     ///     };
-    ///     ph.print("All plugin preferences:\0");
+    ///     ph.print(c"All plugin preferences:");
     ///     for pref in prefs {
-    ///         let val = ph.pluginpref_get_str(&pref);
+    ///         let val = ph.pluginpref_get_str(pref.as_str());
     ///         let val = match &val {
     ///             Ok(v) => v,
     ///             Err(()) => "<not found>",
     ///         };
-    ///         ph.print(&format!("{} = {}\0", pref, val));
+    ///         ph.print(format!("{} = {}", pref, val));
     ///     }
     /// }
     /// ```
@@ -1797,13 +1777,13 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     ph.pluginpref_list_with(|prefs| {
     ///         let prefs = match prefs {
     ///             Ok(prefs) => prefs,
-    ///             Err(()) => return ph.print("Failed to list plugin preferences!\0"),
+    ///             Err(()) => return ph.print(c"Failed to list plugin preferences!"),
     ///         };
-    ///         ph.print("All plugin preferences:\0");
+    ///         ph.print(c"All plugin preferences:");
     ///         for pref in prefs {
     ///             ph.pluginpref_get_str_with(pref, |val| {
     ///                 let val = val.unwrap_or("<not found>");
-    ///                 ph.print(&format!("{} = {}\0", pref, val));
+    ///                 ph.print(format!("{} = {}", pref, val));
     ///             });
     ///         }
     ///     });
@@ -1856,10 +1836,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// Analogous to [`hexchat_plugingui_add`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_plugingui_add).
     pub fn plugingui_add(
         self,
-        filename: &str,
-        name: &str,
-        desc: &str,
-        version: &str,
+        filename: impl IntoCStr,
+        name: impl IntoCStr,
+        desc: impl IntoCStr,
+        version: impl IntoCStr,
     ) -> FakePluginHandle {
         let filename = filename.into_cstr();
         let name = name.into_cstr();

@@ -51,7 +51,7 @@ pub enum TextAttrs {
 ///         Ok(s) => s,
 ///         Err(()) => "<failed to strip>",
 ///     };
-///     ph.print(&format!("original: '{}' -> stripped: '{}'", orig, stripped));
+///     ph.print(format!("original: '{}' -> stripped: '{}'", orig, stripped));
 /// }
 /// ```
 pub struct StrippedStr<'a> {

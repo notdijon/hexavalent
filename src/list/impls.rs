@@ -116,7 +116,7 @@ list!(
         [
             custom,
             "Socket of the remote user.",
-            |elem| SocketAddrV4::new(Ipv4Addr::from(elem.int("address32\0") as u32), elem.int("port\0") as u16)
+            |elem| SocketAddrV4::new(Ipv4Addr::from(elem.int(c"address32") as u32), elem.int(c"port") as u16)
         ] socket_addr: SocketAddrV4 => SocketAddrV4,
         ["cps", "Bytes per second (speed).", int] bytes_per_second: u32 => u32,
         ["destfile", "Destination full pathname.", string] dest_file: String => &str,
@@ -125,17 +125,17 @@ list!(
         [
             custom,
             "Bytes sent/received.",
-            |elem| (elem.int("poshigh\0") as u64) << 32 | (elem.int("pos\0") as u64)
+            |elem| (elem.int(c"poshigh") as u64) << 32 | (elem.int(c"pos") as u64)
         ] position: u64 => u64,
         [
             custom,
             "Point at which this file was resumed.",
-            |elem| NonZeroU64::new((elem.int("resumehigh\0") as u64) << 32 | (elem.int("resume\0") as u64))
+            |elem| NonZeroU64::new((elem.int(c"resumehigh") as u64) << 32 | (elem.int(c"resume") as u64))
         ] resumed_at: Option<NonZeroU64> => Option<NonZeroU64>,
         [
             custom,
             "File size in bytes.",
-            |elem| (elem.int("sizehigh\0") as u64) << 32 | (elem.int("size\0") as u64)
+            |elem| (elem.int(c"sizehigh") as u64) << 32 | (elem.int(c"size") as u64)
         ] size: u64 => u64
     }
 );

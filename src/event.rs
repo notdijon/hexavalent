@@ -110,8 +110,8 @@ macro_rules! event {
         $struct_name:ident,
         $event_name:literal,
         $event_doc:literal,
-        $($index:literal : $field_name:literal),*
-        $(, eol $eol_index:literal : $eol_name:literal)?
+        $($index:tt : $field_name:literal),*
+        $(; eol $eol_index:tt : $eol_name:literal)?
     ) => {
         #[doc = "`"]
         #[doc = $event_name]
@@ -164,13 +164,13 @@ macro_rules! event {
             #[allow(unused_variables)]
             fn args_to_c<R>(args: impl Into<Self::ArgsImpl>, f: impl FnOnce(&[&::std::ffi::CStr]) -> R) -> R {
                 let args: Self::ArgsImpl = args.into();
-                let args: [::std::borrow::Cow::<'_, ::std::ffi::CStr>; Self::FIELD_COUNT] = [
-                    $(crate::ffi::StrExt::into_cstr(args[$index])),*
-                    $(, crate::ffi::StrExt::into_cstr(args[$eol_index]))?
-                ];
+                let args = (
+                    $(crate::cstr::private::IntoCStrImpl::into_cstr(args[$index]),)*
+                    $(crate::cstr::private::IntoCStrImpl::into_cstr(args[$eol_index]),)?
+                );
                 let args = [
-                    $(args[$index].as_ref()),*
-                    $(, args[$eol_index].as_ref())?
+                    $(args.$index.as_ref(),)*
+                    $(args.$eol_index.as_ref(),)?
                 ];
                 f(&args)
             }
@@ -201,9 +201,9 @@ macro_rules! event {
                                     $event_name,
                                     e,
                                 )
-                            })
-                    ),*
-                    $(,
+                            }),
+                    )*
+                    $(
                         word_eol
                             .nth($eol_index)
                             .unwrap_or_else(|| {
@@ -222,7 +222,7 @@ macro_rules! event {
                                     $event_name,
                                     e,
                                 )
-                            })
+                            }),
                     )?
                 ];
                 R::from(args)

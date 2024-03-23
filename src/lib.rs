@@ -51,7 +51,7 @@
 //!         let [nick, _channel, _host, _account] = args;
 //!         if self.enabled.get() {
 //!             // op ANYONE who joins
-//!             ph.command(&format!("OP {}", nick));
+//!             ph.command(format!("OP {}", nick));
 //!         }
 //!         // don't eat this event, HexChat needs to see it
 //!         Eat::None
@@ -116,6 +116,7 @@ mod state;
 pub mod internal;
 
 pub mod context;
+pub mod cstr;
 pub mod event;
 pub mod gui;
 pub mod hook;
@@ -143,7 +144,7 @@ pub use plugin::{Plugin, PluginHandle};
 ///
 /// impl Plugin for NoopPlugin {
 ///     fn init(&self, ph: PluginHandle<'_, Self>) {
-///         ph.print("Hello world!\0");
+///         ph.print("Hello world!");
 ///     }
 /// }
 ///
@@ -160,7 +161,7 @@ pub use plugin::{Plugin, PluginHandle};
 ///
 /// impl Plugin for NoopPlugin {
 ///     fn init(&self, ph: PluginHandle<'_, Self>) {
-///         ph.print("Hello world!\0");
+///         ph.print("Hello world!");
 ///     }
 /// }
 ///

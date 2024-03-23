@@ -24,8 +24,8 @@ use crate::event::Event;
 ///
 /// fn privmsg_cb<P>(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; 4]) -> Eat {
 ///     let [sender, _, target, text] = args;
-///     ph.print(&format!(
-///         "Message from {} to {}: {}\0",
+///     ph.print(format!(
+///         "Message from {} to {}: {}",
 ///         sender, target, text
 ///     ));
 ///     Eat::None
@@ -38,10 +38,10 @@ macro_rules! server_event {
         $struct_name:ident,
         $event_name:literal,
         $event_doc:literal,
-        $($index:literal : $field_name:literal),*
-        $(, eol $eol_index:literal : $eol_name:literal)?
+        $($index:tt : $field_name:literal),*
+        $(; eol $eol_index:tt : $eol_name:literal)?
     ) => {
-        event!($struct_name, $event_name, $event_doc, $($index : $field_name),* $(, eol $eol_index : $eol_name)?);
+        event!($struct_name, $event_name, $event_doc, $($index : $field_name),* $(; eol $eol_index : $eol_name)?);
 
         impl crate::event::server::ServerEvent for $struct_name {}
     };

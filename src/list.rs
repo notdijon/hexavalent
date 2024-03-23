@@ -79,8 +79,8 @@ macro_rules! list {
         #[derive(Debug, Clone)]
         pub struct $elem_ty {
             $(
-                $rust_field_name: $rust_field_type
-            ),*
+                $rust_field_name: $rust_field_type,
+            )*
         }
 
         impl $elem_ty {
@@ -99,8 +99,8 @@ macro_rules! list {
                         $rust_field_name: {
                             let raw_value = list!(@generateFieldExtraction, elem, $( $field_key )? $( $custom )?, $( $field_type )? $( |$elem| $extract )?);
                             crate::list::FromListElemField::from_list_elem_field(raw_value)
-                        }
-                    ),*
+                        },
+                    )*
                 }
             }
         }
@@ -124,7 +124,13 @@ macro_rules! list {
         $field_key:literal,
         $field_type:ident
     ) => {
-        $elem.$field_type(concat!($field_key, "\0"))
+        {
+            const NAME: &::std::ffi::CStr = match ::std::ffi::CStr::from_bytes_with_nul(concat!($field_key, "\0").as_bytes()) {
+                Ok(name) => name,
+                Err(_) => unreachable!(),
+            };
+            $elem.$field_type(NAME)
+        }
     }
 }
 

@@ -9,7 +9,7 @@ documentation = "https://docs.rs/hexavalent"
 readme = "./README.md"
 categories = ["api-bindings"]
 keywords = ["hexchat", "irc"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 bitflags = { version = "1.3.2", default-features = false }
