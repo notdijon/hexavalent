@@ -128,7 +128,7 @@ pub(crate) unsafe fn hexchat_plugin_init<P: Plugin>(plugin_handle: *mut hexchat_
                 *PLUGIN.get() = Some(GlobalPlugin {
                     #[cfg(debug_assertions)]
                     thread_id: std::thread::current().id(),
-                    plugin: Box::new(P::default()),
+                    plugin: Box::<P>::default(),
                     plugin_handle,
                 });
             }
@@ -190,7 +190,7 @@ pub(crate) fn with_plugin_state<P: 'static, R>(f: impl FnOnce(&P, PluginHandle<'
 
     // Safety: STATE guarantees that there are only readers active
     let global_plugin = unsafe {
-        (&*PLUGIN.get())
+        (*PLUGIN.get())
             .as_ref()
             .unwrap_or_else(|| panic!("Plugin invoked while uninitialized"))
     };

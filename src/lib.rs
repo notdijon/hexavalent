@@ -90,6 +90,7 @@
 //! which can help detect misbehavior.
 
 #![allow(
+    clippy::get_first,
     clippy::result_unit_err,
     clippy::too_many_arguments,
     clippy::type_complexity
@@ -97,7 +98,6 @@
 #![warn(
     missing_debug_implementations,
     missing_docs,
-    rustdoc::missing_doc_code_examples,
     trivial_numeric_casts,
     unreachable_pub,
     unused_qualifications
