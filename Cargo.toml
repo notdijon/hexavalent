@@ -1,6 +1,6 @@
 [package]
 name = "hexavalent"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["notdijon <61089563+notdijon@users.noreply.github.com>"]
 license = "MIT"
 description = "Write HexChat plugins in Rust."
