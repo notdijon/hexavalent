@@ -1,5 +1,7 @@
 //! Global preferences.
 
+use crate::str::HexString;
+
 /// The value of a HexChat setting.
 ///
 /// Used with [`PluginHandle::get_pref`](crate::PluginHandle::get_pref).
@@ -13,33 +15,25 @@ where
 {
     /// The preference's type.
     ///
-    /// Can be `String`, `i32`, or `bool`.
+    /// Can be [`HexString`], `i32`, or `bool`.
     // todo with GATs, it _might_ be nice to have Type/BorrowedType<'a>, so that we can avoid allocation
     //  (but we'd probably have to make get_pref_with unsafe due to invalidation of the string)
     type Type: 'static;
 }
 
 pub(crate) mod private {
-    use std::os::raw::c_char;
+    use std::ffi::CStr;
 
-    /// Underlying private preference implementation.
-    ///
-    /// # Safety
-    ///
-    /// See safety comments on each member.
-    pub unsafe trait PrefImpl {
-        /// The preference's name.
-        ///
-        /// # Safety
-        ///
-        /// Must point to a valid, null-terminated C-style string.
-        const NAME: *const c_char;
+    use crate::str::HexStr;
+
+    pub trait PrefImpl {
+        const NAME: &'static CStr;
     }
 
     #[allow(unreachable_pub)]
     #[derive(Debug)]
     pub enum PrefValue<'a> {
-        Str(&'a str),
+        Str(&'a HexStr),
         Int(i32),
         Bool(bool),
     }
@@ -50,7 +44,7 @@ pub(crate) mod private {
     }
 }
 
-impl private::FromPrefValue for String {
+impl private::FromPrefValue for HexString {
     fn from_pref_value(pref: private::PrefValue<'_>) -> Result<Self, ()> {
         match pref {
             private::PrefValue::Str(x) => Ok(x.to_owned()),
@@ -85,9 +79,12 @@ macro_rules! pref {
         #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
-        unsafe impl crate::pref::private::PrefImpl for $struct_name {
-            // Safety: this string is null-terminated and static
-            const NAME: *const ::std::os::raw::c_char = concat!($pref_name, "\0").as_ptr().cast();
+        impl crate::pref::private::PrefImpl for $struct_name {
+            const NAME: &'static ::std::ffi::CStr =
+                match ::std::ffi::CStr::from_bytes_with_nul(concat!($pref_name, "\0").as_bytes()) {
+                    Ok(name) => name,
+                    Err(_) => unreachable!(),
+                };
         }
 
         impl crate::pref::Pref for $struct_name {

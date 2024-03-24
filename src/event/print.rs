@@ -22,7 +22,7 @@ use crate::event::Event;
 /// use hexavalent::event::print::ChannelMessage;
 ///
 /// fn print_welcome_message<P>(ph: PluginHandle<'_, P>) -> Result<(), ()> {
-///     ph.emit_print(ChannelMessage, ["hexavalent\0", "Plugin started!\0", "@\0", "\0"])
+///     ph.emit_print(ChannelMessage, [c"hexavalent", c"Plugin started!", c"@", c""])
 /// }
 /// ```
 ///
@@ -34,30 +34,27 @@ use crate::event::Event;
 /// use hexavalent::hook::{Eat, Priority};
 ///
 /// fn hook_message<P>(ph: PluginHandle<'_, P>) {
-///     ph.hook_print(ChannelMessage, Priority::Normal, message_cb);
-/// }
-///
-/// fn message_cb<P>(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; 4]) -> Eat {
-///     let [nick, text, mode, ident] = args;
-///     ph.print(&format!(
-///         "Message from {} (with mode '{}', ident '{}'): {}\0",
-///         nick, mode, ident, text
-///     ));
-///     Eat::HexChat
+///     ph.hook_print(ChannelMessage, Priority::Normal, |plugin, ph, [nick, text, mode, ident]| {
+///         ph.print(format!(
+///             "Message from {} (with mode '{}', ident '{}'): {}",
+///             nick, mode, ident, text
+///         ));
+///         Eat::HexChat
+///     });
 /// }
 /// ```
-pub trait PrintEvent: for<'a> Event<'a> {}
+pub trait PrintEvent<const ARGS: usize>: Event<ARGS> {}
 
 macro_rules! print_event {
     (
         $struct_name:ident,
         $event_name:literal,
         $event_doc:literal,
-        $($index:literal : $field_name:literal),*
+        $($index:tt : $field_name:literal),*
     ) => {
         event!($struct_name, $event_name, $event_doc, $($index : $field_name),*);
 
-        impl crate::event::print::PrintEvent for $struct_name {}
+        impl crate::event::print::PrintEvent<{ count!($($index)*) }> for $struct_name {}
     };
 }
 

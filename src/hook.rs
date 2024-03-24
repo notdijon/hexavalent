@@ -96,28 +96,28 @@ pub enum Timer {
 /// impl Plugin for MyPlugin {
 ///     fn init(&self, ph: PluginHandle<'_, Self>) {
 ///         let hook = ph.hook_command(
-///             "theCommand\0",
-///             "Usage: THECOMMAND, can be disabled\0",
+///             c"theCommand",
+///             c"Usage: THECOMMAND, can be disabled",
 ///             Priority::Normal,
 ///             |plugin, ph, words| {
-///                 ph.print("Yep, it still works.\0");
+///                 ph.print(c"Yep, it still works.");
 ///                 Eat::All
 ///             }
 ///         );
 ///         self.cmd_handle.set(Some(hook));
 ///
 ///         ph.hook_command(
-///             "disableTheCommand\0",
-///             "Usage: DISABLETHECOMMAND, disables /theCommand\0",
+///             c"disableTheCommand",
+///             c"Usage: DISABLETHECOMMAND, disables /theCommand",
 ///             Priority::Normal,
 ///             |plugin, ph, words| {
 ///                 match plugin.cmd_handle.take() {
 ///                     Some(hook) => {
 ///                         ph.unhook(hook);
-///                         ph.print("Disabled the command!\0");
+///                         ph.print(c"Disabled the command!");
 ///                     }
 ///                     None => {
-///                         ph.print("Command already disabled!\0");
+///                         ph.print(c"Command already disabled!");
 ///                     }
 ///                 }
 ///                 Eat::All

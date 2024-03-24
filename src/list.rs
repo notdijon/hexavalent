@@ -1,7 +1,10 @@
 //! Info lists.
 
 use std::convert::TryFrom;
+use std::ops::Deref;
 use std::str::Split;
+
+use crate::str::{HexStr, HexString};
 
 /// A list that can be retrieved from HexChat.
 ///
@@ -19,22 +22,11 @@ where
 }
 
 pub(crate) mod private {
-    use std::os::raw::c_char;
-
     use crate::ffi::ListElem;
+    use std::ffi::CStr;
 
-    /// Underlying private list implementation.
-    ///
-    /// # Safety
-    ///
-    /// See safety comments on each member.
-    pub unsafe trait ListImpl {
-        /// The list's name.
-        ///
-        /// # Safety
-        ///
-        /// Must point to a valid, null-terminated C-style string.
-        const NAME: *const c_char;
+    pub trait ListImpl {
+        const NAME: &'static CStr;
     }
 
     #[allow(unreachable_pub)]
@@ -64,9 +56,11 @@ macro_rules! list {
         #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
-        unsafe impl crate::list::private::ListImpl for $struct_name {
-            // Safety: this string is null-terminated and static
-            const NAME: *const ::std::os::raw::c_char = concat!($list_name, "\0").as_ptr().cast();
+        impl crate::list::private::ListImpl for $struct_name {
+            const NAME: &'static ::std::ffi::CStr = match ::std::ffi::CStr::from_bytes_with_nul(concat!($list_name, "\0").as_bytes()) {
+                Ok(name) => name,
+                Err(_) => unreachable!(),
+            };
         }
 
         impl crate::list::List for $struct_name {
@@ -79,8 +73,8 @@ macro_rules! list {
         #[derive(Debug, Clone)]
         pub struct $elem_ty {
             $(
-                $rust_field_name: $rust_field_type
-            ),*
+                $rust_field_name: $rust_field_type,
+            )*
         }
 
         impl $elem_ty {
@@ -99,8 +93,8 @@ macro_rules! list {
                         $rust_field_name: {
                             let raw_value = list!(@generateFieldExtraction, elem, $( $field_key )? $( $custom )?, $( $field_type )? $( |$elem| $extract )?);
                             crate::list::FromListElemField::from_list_elem_field(raw_value)
-                        }
-                    ),*
+                        },
+                    )*
                 }
             }
         }
@@ -124,7 +118,13 @@ macro_rules! list {
         $field_key:literal,
         $field_type:ident
     ) => {
-        $elem.$field_type(concat!($field_key, "\0"))
+        {
+            const NAME: &::std::ffi::CStr = match ::std::ffi::CStr::from_bytes_with_nul(concat!($field_key, "\0").as_bytes()) {
+                Ok(name) => name,
+                Err(_) => unreachable!(),
+            };
+            $elem.$field_type(NAME)
+        }
     }
 }
 
@@ -141,22 +141,22 @@ impl<T> FromListElemField<T> for T {
     }
 }
 
-impl FromListElemField<Option<&str>> for String {
-    fn from_list_elem_field(field: Option<&str>) -> Self {
+impl FromListElemField<Option<&HexStr>> for HexString {
+    fn from_list_elem_field(field: Option<&HexStr>) -> Self {
         field
             .map(ToOwned::to_owned)
             .unwrap_or_else(|| panic!("Unexpected null string in list"))
     }
 }
 
-impl FromListElemField<Option<&str>> for Option<String> {
-    fn from_list_elem_field(field: Option<&str>) -> Self {
+impl FromListElemField<Option<&HexStr>> for Option<HexString> {
+    fn from_list_elem_field(field: Option<&HexStr>) -> Self {
         field.map(ToOwned::to_owned)
     }
 }
 
-impl FromListElemField<Option<&str>> for Option<char> {
-    fn from_list_elem_field(field: Option<&str>) -> Self {
+impl FromListElemField<Option<&HexStr>> for Option<char> {
+    fn from_list_elem_field(field: Option<&HexStr>) -> Self {
         match field {
             Some(field) => match field.as_bytes() {
                 &[] => None,
@@ -184,9 +184,9 @@ impl FromListElemField<i32> for bool {
     }
 }
 
-impl FromListElemField<Option<&str>> for SplitByCommas {
-    fn from_list_elem_field(field: Option<&str>) -> Self {
-        Self(field.map(ToOwned::to_owned).unwrap_or_default())
+impl FromListElemField<Option<&HexStr>> for SplitByCommas {
+    fn from_list_elem_field(field: Option<&HexStr>) -> SplitByCommas {
+        SplitByCommas(field.map(|s| s.deref().to_owned()).unwrap_or_default())
     }
 }
 
@@ -200,15 +200,15 @@ impl<'a, T: Copy> ProjectListElemField<'a, T> for T {
     }
 }
 
-impl<'a> ProjectListElemField<'a, &'a str> for String {
-    fn project_list_elem_field(&self) -> &str {
+impl<'a> ProjectListElemField<'a, &'a HexStr> for HexString {
+    fn project_list_elem_field(&self) -> &HexStr {
         self
     }
 }
 
-impl<'a> ProjectListElemField<'a, Option<&'a str>> for Option<String> {
-    fn project_list_elem_field(&self) -> Option<&str> {
-        self.as_ref().map(|s| s.as_str())
+impl<'a> ProjectListElemField<'a, Option<&'a HexStr>> for Option<HexString> {
+    fn project_list_elem_field(&self) -> Option<&HexStr> {
+        self.as_deref()
     }
 }
 

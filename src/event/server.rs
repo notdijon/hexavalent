@@ -19,31 +19,25 @@ use crate::event::Event;
 /// use hexavalent::hook::{Eat, Priority};
 ///
 /// fn hook_privmsg<P>(ph: PluginHandle<'_, P>) {
-///     ph.hook_server(Privmsg, Priority::Normal, privmsg_cb);
-/// }
-///
-/// fn privmsg_cb<P>(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; 4]) -> Eat {
-///     let [sender, _, target, text] = args;
-///     ph.print(&format!(
-///         "Message from {} to {}: {}\0",
-///         sender, target, text
-///     ));
-///     Eat::None
+///     ph.hook_server(Privmsg, Priority::Normal, |plugin, ph, [sender, _, target, text]| {
+///         ph.print(format!("Message from {} to {}: {}", sender, target, text));
+///         Eat::None
+///     });
 /// }
 /// ```
-pub trait ServerEvent: for<'a> Event<'a> {}
+pub trait ServerEvent<const ARGS: usize>: Event<ARGS> {}
 
 macro_rules! server_event {
     (
         $struct_name:ident,
         $event_name:literal,
         $event_doc:literal,
-        $($index:literal : $field_name:literal),*
-        $(, eol $eol_index:literal : $eol_name:literal)?
+        $($index:tt : $field_name:literal),*
+        $(; eol $eol_index:tt : $eol_name:literal)?
     ) => {
-        event!($struct_name, $event_name, $event_doc, $($index : $field_name),* $(, eol $eol_index : $eol_name)?);
+        event!($struct_name, $event_name, $event_doc, $($index : $field_name),* $(; eol $eol_index : $eol_name)?);
 
-        impl crate::event::server::ServerEvent for $struct_name {}
+        impl crate::event::server::ServerEvent<{ count!($($index)* $($eol_index)?) }> for $struct_name {}
     };
 }
 

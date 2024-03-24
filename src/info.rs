@@ -1,5 +1,7 @@
 //! Context info.
 
+use crate::str::{HexStr, HexString};
+
 /// Info about the current [context](crate::PluginHandle::find_context).
 ///
 /// Used with [`PluginHandle::get_info`](crate::PluginHandle::get_info).
@@ -18,37 +20,29 @@ where
 }
 
 pub(crate) mod private {
-    use std::os::raw::c_char;
+    use std::ffi::CStr;
 
-    /// Underlying private info implementation.
-    ///
-    /// # Safety
-    ///
-    /// See safety comments on each member.
-    pub unsafe trait InfoImpl {
-        /// The info's name.
-        ///
-        /// # Safety
-        ///
-        /// Must point to a valid, null-terminated C-style string.
-        const NAME: *const c_char;
+    use crate::str::HexStr;
+
+    pub trait InfoImpl {
+        const NAME: &'static CStr;
     }
 
     #[allow(unreachable_pub)]
     pub trait FromInfoValue: Sized {
-        fn from_info_value(info: Option<&str>) -> Self;
+        fn from_info_value(info: Option<&HexStr>) -> Self;
     }
 }
 
-impl private::FromInfoValue for String {
-    fn from_info_value(info: Option<&str>) -> Self {
+impl private::FromInfoValue for HexString {
+    fn from_info_value(info: Option<&HexStr>) -> Self {
         info.map(ToOwned::to_owned)
             .unwrap_or_else(|| panic!("Unexpected null info value"))
     }
 }
 
-impl private::FromInfoValue for Option<String> {
-    fn from_info_value(info: Option<&str>) -> Self {
+impl private::FromInfoValue for Option<HexString> {
+    fn from_info_value(info: Option<&HexStr>) -> Self {
         info.map(ToOwned::to_owned)
     }
 }
@@ -63,9 +57,12 @@ macro_rules! info {
         #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
-        unsafe impl crate::info::private::InfoImpl for $struct_name {
-            // Safety: this string is null-terminated and static
-            const NAME: *const ::std::os::raw::c_char = concat!($info_name, "\0").as_ptr().cast();
+        impl crate::info::private::InfoImpl for $struct_name {
+            const NAME: &'static ::std::ffi::CStr =
+                match ::std::ffi::CStr::from_bytes_with_nul(concat!($info_name, "\0").as_bytes()) {
+                    Ok(name) => name,
+                    Err(_) => unreachable!(),
+                };
         }
 
         impl crate::info::Info for $struct_name {

@@ -21,6 +21,7 @@
 //! use hexavalent::{Plugin, PluginHandle, export_plugin};
 //! use hexavalent::event::print::Join;
 //! use hexavalent::hook::{Eat, Priority};
+//! use hexavalent::str::HexStr;
 //!
 //! struct AutoOpPlugin {
 //!     enabled: Cell<bool>,
@@ -35,7 +36,7 @@
 //! }
 //!
 //! impl AutoOpPlugin {
-//!     fn autooptoggle_cb(&self, ph: PluginHandle<'_, Self>, _words: &[&str]) -> Eat {
+//!     fn autooptoggle_cb(&self, ph: PluginHandle<'_, Self>, _words: &[&HexStr]) -> Eat {
 //!         if !self.enabled.get() {
 //!             self.enabled.set(true);
 //!             ph.print("Auto-Oping now enabled!");
@@ -47,11 +48,11 @@
 //!         Eat::All
 //!     }
 //!
-//!     fn join_cb(&self, ph: PluginHandle<'_, Self>, args: [&str; 4]) -> Eat {
+//!     fn join_cb(&self, ph: PluginHandle<'_, Self>, args: [&HexStr; 4]) -> Eat {
 //!         let [nick, _channel, _host, _account] = args;
 //!         if self.enabled.get() {
 //!             // op ANYONE who joins
-//!             ph.command(&format!("OP {}", nick));
+//!             ph.command(format!("OP {}", nick));
 //!         }
 //!         // don't eat this event, HexChat needs to see it
 //!         Eat::None
@@ -123,6 +124,7 @@ pub mod info;
 pub mod list;
 pub mod mode;
 pub mod pref;
+pub mod str;
 pub mod strip;
 
 pub use plugin::{Plugin, PluginHandle};
@@ -143,7 +145,7 @@ pub use plugin::{Plugin, PluginHandle};
 ///
 /// impl Plugin for NoopPlugin {
 ///     fn init(&self, ph: PluginHandle<'_, Self>) {
-///         ph.print("Hello world!\0");
+///         ph.print("Hello world!");
 ///     }
 /// }
 ///
@@ -160,7 +162,7 @@ pub use plugin::{Plugin, PluginHandle};
 ///
 /// impl Plugin for NoopPlugin {
 ///     fn init(&self, ph: PluginHandle<'_, Self>) {
-///         ph.print("Hello world!\0");
+///         ph.print("Hello world!");
 ///     }
 /// }
 ///
@@ -187,15 +189,26 @@ macro_rules! export_plugin {
             plugin_version: *mut *const ::std::os::raw::c_char,
             _arg: *mut ::std::os::raw::c_char,
         ) -> ::std::os::raw::c_int {
+            const NAME: &::std::ffi::CStr =
+                match ::std::ffi::CStr::from_bytes_with_nul(concat!($name, "\0").as_bytes()) {
+                    Ok(x) => x,
+                    Err(_) => unreachable!(),
+                };
+            const DESC: &::std::ffi::CStr =
+                match ::std::ffi::CStr::from_bytes_with_nul(concat!($desc, "\0").as_bytes()) {
+                    Ok(x) => x,
+                    Err(_) => unreachable!(),
+                };
+            const VERSION: &::std::ffi::CStr =
+                match ::std::ffi::CStr::from_bytes_with_nul(concat!($version, "\0").as_bytes()) {
+                    Ok(x) => x,
+                    Err(_) => unreachable!(),
+                };
+
             // Safety: these literals are null-terminated and 'static
-            const NAME: &'static str = concat!($name, "\0");
-            const DESC: &'static str = concat!($desc, "\0");
-            const VERSION: &'static str = concat!($version, "\0");
-            // note that these user-provided strings may contain interior nulls, so we cannot go through &CStr
-            // it's fine to go straight to `*const c_char` though, as C doesn't care about that, it'll just end the string early
-            *plugin_name = NAME.as_ptr().cast();
-            *plugin_desc = DESC.as_ptr().cast();
-            *plugin_version = VERSION.as_ptr().cast();
+            *plugin_name = NAME.as_ptr();
+            *plugin_desc = DESC.as_ptr();
+            *plugin_version = VERSION.as_ptr();
 
             $crate::internal::hexchat_plugin_init::<$plugin_ty>(plugin_handle)
         }

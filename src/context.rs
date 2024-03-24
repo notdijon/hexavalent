@@ -4,40 +4,63 @@ use std::marker::PhantomData;
 use std::ptr::NonNull;
 
 use crate::ffi::hexchat_context;
+use crate::str::{HexString, IntoCStr};
 
 /// Criteria used to find a server/channel context.
 ///
 /// Used with [`PluginHandle::find_context`](crate::PluginHandle::find_context).
 ///
 /// Analogous to arguments passed to [`hexchat_find_context`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_find_context).
-#[non_exhaustive]
 #[derive(Debug)]
-pub enum Context<'a> {
+pub struct Context<S: IntoCStr> {
+    pub(crate) servname: Option<S>,
+    pub(crate) channel: Option<S>,
+}
+
+impl Context<HexString> {
     /// The currently-focused tab/window.
-    Focused,
+    pub fn focused() -> Self {
+        Self {
+            servname: None,
+            channel: None,
+        }
+    }
+}
+
+impl<S: IntoCStr> Context<S> {
     /// The specified channel in the current server, or if no matching channel exists, in any server.
     ///
     /// This is usually what you want for responding to server events,
     /// since the context in your hook callback will already be in the correct server.
-    Nearby {
-        /// The channel name, including the leading `#` where present.
-        channel: &'a str,
-    },
+    ///
+    /// The channel name should include the leading `#` where present.
+    pub fn channel(channel: S) -> Self {
+        Self {
+            servname: None,
+            channel: Some(channel),
+        }
+    }
+
     /// The frontmost channel in the specified server.
-    Frontmost {
-        /// The server name.
-        servname: &'a str,
-    },
+    pub fn frontmost(servname: S) -> Self {
+        Self {
+            servname: Some(servname),
+            channel: None,
+        }
+    }
+
     /// The specified channel in the specified server.
     ///
-    /// It is generally not necessary to use this variant over `Context::Nearby`,
+    /// It is generally not necessary to use this over [`Context::channel`](Context::channel),
     /// unless you need to print messages to a server in response to actions in a different server.
-    FullyQualified {
-        /// The server name.
-        servname: &'a str,
-        /// The channel name, including the leading `#` where present.
-        channel: &'a str,
-    },
+    ///
+    /// The channel name should include the leading `#` where present.
+    pub fn fully_qualified(servname: S, channel: S) -> Self {
+        Self {
+            servname: Some(servname),
+            channel: Some(channel),
+        }
+    }
 }
 
 /// A handle to a server/channel context in HexChat.
