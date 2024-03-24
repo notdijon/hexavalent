@@ -2,7 +2,6 @@ use std::cell::Cell;
 use std::time::Duration;
 
 use hexavalent::event::print::{ChannelMessage, MessageSend, PrintEvent, PrivateMessage};
-use hexavalent::event::EventAttrs;
 use hexavalent::hook::{Eat, Priority};
 use hexavalent::{export_plugin, Plugin, PluginHandle};
 
@@ -31,7 +30,7 @@ impl TimeShiftPlugin {
             } else {
                 attrs.time() + Duration::from_secs(offset.abs_diff(0))
             };
-            let new_attrs = EventAttrs::new(new_time);
+            let new_attrs = attrs.with_time(new_time);
 
             plugin.inside_hook.set(true);
             if let Err(()) = ph.emit_print_attrs(E::default(), new_attrs, args) {

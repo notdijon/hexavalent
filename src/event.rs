@@ -43,6 +43,17 @@ impl<'a> EventAttrs<'a> {
     pub fn ircv3_line(self) -> &'a str {
         self.ircv3_line
     }
+
+    /// Copies this `EventAttrs` instance and sets its timestamp.
+    pub fn with_time(self, time: OffsetDateTime) -> Self {
+        Self { time, ..self }
+    }
+
+    /// Copies this `EventAttrs` instance and sets its IRCv3 line.
+    #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
+    pub fn with_ircv3_line(self, ircv3_line: &'a str) -> Self {
+        Self { ircv3_line, ..self }
+    }
 }
 
 /// Trait implemented by all event types.
