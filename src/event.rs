@@ -50,10 +50,12 @@ impl<'a> EventAttrs<'a> {
 /// See the [`PrintEvent`](print::PrintEvent) and [`ServerEvent`](server::ServerEvent) traits for usage.
 ///
 /// This trait is sealed and cannot be implemented outside of `hexavalent`.
-pub trait Event<const ARGS: usize>: private::EventImpl<ARGS> {}
+pub trait Event<const ARGS: usize>: Default + private::EventImpl<ARGS> {}
 
 pub(crate) mod private {
     use std::ffi::CStr;
+
+    use crate::str::HexStr;
 
     pub trait EventImpl<const ARGS: usize> {
         const NAME: &'static CStr;
@@ -64,9 +66,9 @@ pub(crate) mod private {
         ///
         /// If `word` or `word_eol` contains invalid UTF8.
         fn args_from_words<'a>(
-            word: impl Iterator<Item = &'a CStr>,
-            word_eol: impl Iterator<Item = &'a CStr>,
-        ) -> [&'a str; ARGS];
+            word: impl Iterator<Item = &'a HexStr>,
+            word_eol: impl Iterator<Item = &'a HexStr>,
+        ) -> [&'a HexStr; ARGS];
     }
 }
 
@@ -121,7 +123,7 @@ macro_rules! event {
             #[doc = $eol_name]
             #[doc = "`"]
         )?
-        #[derive(Debug, Copy, Clone)]
+        #[derive(Debug, Copy, Clone, Default)]
         pub struct $struct_name;
 
         impl crate::event::Event<{ count!($($index)* $($eol_index)?) }> for $struct_name {}
@@ -136,9 +138,9 @@ macro_rules! event {
             #[allow(unused_variables)]
             #[allow(unused_mut)]
             fn args_from_words<'a>(
-                mut word: impl Iterator<Item = &'a ::std::ffi::CStr>,
-                mut word_eol: impl Iterator<Item = &'a ::std::ffi::CStr>,
-            ) -> [&'a str; { count!($($index)* $($eol_index)?) }] {
+                mut word: impl Iterator<Item = &'a crate::str::HexStr>,
+                mut word_eol: impl Iterator<Item = &'a crate::str::HexStr>,
+            ) -> [&'a crate::str::HexStr; { count!($($index)* $($eol_index)?) }] {
                 const ARGS: usize = count!($($index)* $($eol_index)?);
 
                 [
@@ -152,15 +154,6 @@ macro_rules! event {
                                      ARGS,
                                      $index,
                                  )
-                            })
-                            .to_str()
-                            .unwrap_or_else(|e| {
-                                panic!(
-                                    "Invalid UTF8 in event '{}' field '{}': {}",
-                                    $event_name,
-                                    $field_name,
-                                    e,
-                                )
                             }),
                     )*
                     $(
@@ -173,15 +166,6 @@ macro_rules! event {
                                      ARGS,
                                      $eol_index,
                                  )
-                            })
-                            .to_str()
-                            .unwrap_or_else(|e| {
-                                panic!(
-                                    "Invalid UTF8 in event '{}' field '{}': {}",
-                                    $event_name,
-                                    $eol_name,
-                                    e,
-                                )
                             }),
                     )?
                 ]

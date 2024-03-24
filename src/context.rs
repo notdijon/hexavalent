@@ -3,8 +3,8 @@
 use std::marker::PhantomData;
 use std::ptr::NonNull;
 
-use crate::cstr::IntoCStr;
 use crate::ffi::hexchat_context;
+use crate::str::{HexString, IntoCStr};
 
 /// Criteria used to find a server/channel context.
 ///
@@ -17,7 +17,7 @@ pub struct Context<S: IntoCStr> {
     pub(crate) channel: Option<S>,
 }
 
-impl Context<String> {
+impl Context<HexString> {
     /// The currently-focused tab/window.
     pub fn focused() -> Self {
         Self {

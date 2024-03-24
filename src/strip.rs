@@ -1,13 +1,13 @@
 //! String format stripping.
 
+use std::ffi::CStr;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Deref;
-use std::os::raw::c_char;
 use std::ptr::NonNull;
-use std::slice;
-use std::str;
+use std::str::Utf8Error;
 
 use crate::ffi::RawPluginHandle;
+use crate::str::HexStr;
 
 /// Whether to strip mIRC color attributes.
 ///
@@ -35,7 +35,7 @@ pub enum TextAttrs {
 
 /// A stripped string.
 ///
-/// Derefs to `&str`.
+/// Derefs to [`&HexStr`](crate::str::HexStr).
 ///
 /// Returned by [`PluginHandle::strip`](crate::PluginHandle::strip).
 ///
@@ -56,8 +56,8 @@ pub enum TextAttrs {
 /// ```
 pub struct StrippedStr<'a> {
     raw: RawPluginHandle<'a>,
-    stripped_ptr: NonNull<c_char>,
-    len: usize,
+    /// Always points to a valid `HexStr`.
+    stripped_ptr: NonNull<HexStr>,
 }
 
 impl<'a> StrippedStr<'a> {
@@ -65,19 +65,18 @@ impl<'a> StrippedStr<'a> {
     ///
     /// # Safety
     ///
-    /// `stripped_ptr` must point to `len` valid UTF8 bytes, originally returned by `hexchat_strip`.
+    /// `stripped_ptr` must point to a string returned by `hexchat_strip` which is valid for the entire lifetime `'a``.
     ///
     /// This function takes ownership of `stripped_ptr`; the underlying object must not be used afterwards.
     pub(crate) unsafe fn new(
         raw: RawPluginHandle<'a>,
-        stripped_ptr: NonNull<c_char>,
-        len: usize,
-    ) -> Self {
-        Self {
+        stripped_ptr: &CStr,
+    ) -> Result<Self, Utf8Error> {
+        let stripped_ptr = HexStr::from_cstr(stripped_ptr)?;
+        Ok(Self {
             raw,
-            stripped_ptr,
-            len,
-        }
+            stripped_ptr: NonNull::from(stripped_ptr),
+        })
     }
 }
 
@@ -86,26 +85,17 @@ impl Drop for StrippedStr<'_> {
         // Safety: stripped_ptr was returned from hexchat_strip;
         //         we have conceptual ownership of stripped_str due to StrippedStr precondition
         unsafe {
-            self.raw.hexchat_free(self.stripped_ptr.as_ptr() as *mut _);
+            self.raw.hexchat_free(self.stripped_ptr.as_ptr().cast());
         }
     }
 }
 
 impl Deref for StrippedStr<'_> {
-    type Target = str;
+    type Target = HexStr;
 
     fn deref(&self) -> &Self::Target {
-        // Safety: `stripped_ptr` points to `len` bytes
-        let slice =
-            unsafe { slice::from_raw_parts(self.stripped_ptr.as_ptr() as *const _, self.len) };
-        // Safety: `stripped_ptr` points to valid UTF8
-        unsafe { str::from_utf8_unchecked(slice) }
-    }
-}
-
-impl AsRef<str> for StrippedStr<'_> {
-    fn as_ref(&self) -> &str {
-        self.deref()
+        // SAFETY: pointer is always valid.
+        unsafe { self.stripped_ptr.as_ref() }
     }
 }
 

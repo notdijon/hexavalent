@@ -3,6 +3,7 @@ use std::collections::HashSet;
 
 use hexavalent::event::print::ChannelMessage;
 use hexavalent::hook::{Eat, Priority};
+use hexavalent::str::HexStr;
 use hexavalent::{export_plugin, Plugin, PluginHandle};
 
 #[derive(Default)]
@@ -15,7 +16,7 @@ impl SimplePlugin {
     fn message_cb(
         &self,
         _ph: PluginHandle<'_, Self>,
-        [nick, _text, _mode, _ident]: [&str; 4],
+        [nick, _text, _mode, _ident]: [&HexStr; 4],
     ) -> Eat {
         self.count.set(self.count.get() + 1);
         self.nicks.borrow_mut().insert(nick.to_string());

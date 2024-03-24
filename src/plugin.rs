@@ -11,8 +11,6 @@ use std::time::Duration;
 use time::OffsetDateTime;
 
 use crate::context::{Context, ContextHandle};
-use crate::cstr::private::AsCStrArray;
-use crate::cstr::{IntoCStr, IntoCStrArray};
 use crate::event::print::PrintEvent;
 use crate::event::server::ServerEvent;
 use crate::event::EventAttrs;
@@ -30,6 +28,8 @@ use crate::mode::Sign;
 use crate::pref::private::{FromPrefValue, PrefValue};
 use crate::pref::Pref;
 use crate::state::{catch_and_log_unwind, with_plugin_state};
+use crate::str::private::AsCStrArray;
+use crate::str::{HexStr, HexString, IntoCStr, IntoCStrArray};
 use crate::strip::{MircColors, StrippedStr, TextAttrs};
 
 /// Must be implemented by all HexChat plugins.
@@ -42,6 +42,7 @@ use crate::strip::{MircColors, StrippedStr, TextAttrs};
 /// use hexavalent::{Plugin, PluginHandle};
 /// use hexavalent::event::print::ChannelMessage;
 /// use hexavalent::hook::{Eat, Priority};
+/// use hexavalent::str::HexStr;
 ///
 /// struct StatsPlugin {
 ///     start: Cell<SystemTime>,
@@ -63,7 +64,7 @@ use crate::strip::{MircColors, StrippedStr, TextAttrs};
 ///     fn message_cb(
 ///         &self,
 ///         ph: PluginHandle<'_, Self>,
-///         [_, text, _, _]: [&str; 4],
+///         [_, text, _, _]: [&HexStr; 4],
 ///     ) -> Eat {
 ///         self.messages.set(self.messages.get() + 1);
 ///         self.characters.set(self.characters.get() + text.chars().count());
@@ -219,8 +220,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
+    /// use hexavalent::str::HexStr;
     ///
-    /// fn op_user<P>(ph: PluginHandle<'_, P>, username: &str) {
+    /// fn op_user<P>(ph: PluginHandle<'_, P>, username: &HexStr) {
     ///     // do not include the leading slash
     ///     ph.command(format!("OP {}", username));
     /// }
@@ -247,8 +249,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// ```rust
     /// use hexavalent::PluginHandle;
     /// use hexavalent::event::print::ChannelMessage;
+    /// use hexavalent::str::HexStr;
     ///
-    /// fn print_fake_message<P>(ph: PluginHandle<'_, P>, user: &str, text: &str) -> Result<(), ()> {
+    /// fn print_fake_message<P>(ph: PluginHandle<'_, P>, user: &HexStr, text: &str) -> Result<(), ()> {
     ///     ph.emit_print(ChannelMessage, (user, text, c"@", c"$"))
     /// }
     /// ```
@@ -346,7 +349,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
             );
 
             #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
-            let ircv3_line = crate::cstr::private::IntoCStrImpl::into_cstr(attrs.ircv3_line());
+            let ircv3_line = crate::str::private::IntoCStrImpl::into_cstr(attrs.ircv3_line());
             #[cfg(feature = "__unstable_ircv3_line_in_event_attrs")]
             ptr::write(
                 &mut (*event_attrs).ircv3_line as *mut _,
@@ -454,18 +457,15 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// > respectively. This is a critical issue when determining the
     /// > equivalence of two nicknames.
     ///
-    /// Note that, like other functions taking `&str`, this function will allocate if the provided strings are not already null-terminated.
-    /// This may be expensive; if you are calling this function in a loop, consider implementing your own RFC1459 string comparison.
-    /// (This function is provided mainly for API completeness.)
-    ///
     /// Analogous to [`hexchat_nickcmp`](https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_nickcmp).
     ///
     /// # Examples
     ///
     /// ```rust
     /// use hexavalent::PluginHandle;
+    /// use hexavalent::str::HexStr;
     ///
-    /// fn sort_nicknames<P>(ph: PluginHandle<'_, P>, nicks: &mut [&str]) {
+    /// fn sort_nicknames<P>(ph: PluginHandle<'_, P>, nicks: &mut [&HexStr]) {
     ///     nicks.sort_by(|n1, n2| ph.nickcmp(*n1, *n2));
     /// }
     /// ```
@@ -493,10 +493,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     let orig = "\x0312Blue\x03 \x02Bold!\x02";
     ///
     ///     let strip_all = ph.strip(orig, MircColors::Remove, TextAttrs::Remove);
-    ///     assert_eq!(strip_all.unwrap().as_ref(), "Blue Bold!");
+    ///     assert_eq!(strip_all.unwrap().as_str(), "Blue Bold!");
     ///
     ///     let strip_colors = ph.strip(orig, MircColors::Remove, TextAttrs::Keep);
-    ///     assert_eq!(strip_colors.unwrap().as_ref(), "Blue \x02Bold!\x02");
+    ///     assert_eq!(strip_colors.unwrap().as_str(), "Blue \x02Bold!\x02");
     /// }
     /// ```
     pub fn strip(
@@ -526,12 +526,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
         };
 
         // Safety: hexchat_strip returns a valid pointer or null
-        let validated = unsafe { CStr::from_ptr(stripped_ptr.as_ptr()) }
-            .to_str()
-            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e));
+        let raw_str = unsafe { CStr::from_ptr(stripped_ptr.as_ptr()) };
 
-        // Safety: `stripped_ptr` points to `validated.len()` valid utf8 bytes; is not used after this
-        let stripped = unsafe { StrippedStr::new(self.raw, stripped_ptr, validated.len()) };
+        // Safety: `stripped_ptr` points to a valid utf8 bytes; is not used after this
+        let stripped = unsafe { StrippedStr::new(self.raw, raw_str) }
+            .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_strip`: {}", e));
 
         Ok(stripped)
     }
@@ -552,12 +551,13 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// ```rust
     /// use hexavalent::PluginHandle;
     /// use hexavalent::info::{AwayReason, Channel};
+    /// use hexavalent::str::HexString;
     ///
-    /// fn current_channel<P>(ph: PluginHandle<'_, P>) -> String {
+    /// fn current_channel<P>(ph: PluginHandle<'_, P>) -> HexString {
     ///     ph.get_info(Channel)
     /// }
     ///
-    /// fn current_away_reason<P>(ph: PluginHandle<'_, P>) -> Option<String> {
+    /// fn current_away_reason<P>(ph: PluginHandle<'_, P>) -> Option<HexString> {
     ///     ph.get_info(AwayReason)
     /// }
     /// ```
@@ -570,7 +570,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         info: I,
         // Note: this must be a fn pointer as this api returns a pointer to memory owned by hexchat,
         // which could be invalidated by the closure otherwise (e.g. by interacting with hexchat in basically any way).
-        f: fn(Option<&str>) -> R,
+        f: fn(Option<&HexStr>) -> R,
     ) -> R {
         let _ = info;
 
@@ -582,8 +582,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
         }
 
         // Safety: pointer returned from hexchat_get_info is null or valid; str does not outlive this function
-        let str = unsafe { CStr::from_ptr(ptr) }
-            .to_str()
+        let str = unsafe { CStr::from_ptr(ptr) };
+
+        let str = HexStr::from_cstr(str)
             .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_get_info`: {}", e));
 
         f(Some(str))
@@ -637,8 +638,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
                 assert!(!string.is_null());
 
                 // Safety: hexchat_get_prefs sets a valid string or null, temporary does not outlive this function
-                let str = unsafe { CStr::from_ptr(string) }
-                    .to_str()
+                let str = unsafe { CStr::from_ptr(string) };
+
+                let str = HexStr::from_cstr(str)
                     .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_get_prefs`: {}", e));
 
                 PrefValue::Str(str)
@@ -715,7 +717,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
             >,
         ) -> R,
     ) -> R {
-        // Safety: iter is only exposed to a function pointer which can't interact with Hexchat,
+        // Safety: iter is only exposed to a function pointer which can't interact with HexChat,
         //         and is only passed in by reference, so it can't escape
         let iter = unsafe { self.get_list_iter(list) };
 
@@ -729,10 +731,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// # Safety
     ///
-    /// You must not interact with Hexchat in any way that could cause invalidation of a list elem
+    /// You must not interact with HexChat in any way that could cause invalidation of a list elem
     /// while any `ListElem` exists. The use of a `LendingIterator` prevents invalidating the list itself,
     /// but other operations (e.g. switching channels) may also cause invalidation. To be safe, do not call
-    /// any Hexchat functions while a `ListElem` exists.
+    /// any HexChat functions while a `ListElem` exists.
     unsafe fn get_list_iter<L: List>(
         self,
         list: L,
@@ -860,15 +862,16 @@ impl<'ph, P> PluginHandle<'ph, P> {
 /// use std::collections::HashMap;
 /// use hexavalent::{Plugin, PluginHandle};
 /// use hexavalent::hook::{Eat, HookHandle, Priority};
+/// use hexavalent::str::HexString;
 ///
 /// struct MyPlugin {
-///     map: RefCell<HashMap<String, String>>,
+///     map: RefCell<HashMap<HexString, HexString>>,
 /// }
 ///
 /// fn add_map_command(ph: PluginHandle<'_, MyPlugin>) {
 ///     ph.hook_command(c"map_set", c"Usage: MAP_SET <k> <v>", Priority::Normal, |plugin, ph, words| {
-///         let key = words[1].to_string();
-///         let val = words[2].to_string();
+///         let key = words[1].to_owned();
+///         let val = words[2].to_owned();
 ///         plugin.map.borrow_mut().insert(key, val);
 ///         Eat::All
 ///     });
@@ -927,7 +930,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         name: impl IntoCStr,
         help_text: impl IntoCStr,
         priority: Priority,
-        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> Eat,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&HexStr]) -> Eat,
     ) -> HookHandle {
         extern "C" fn hook_command_callback<P: 'static>(
             word: *mut *mut c_char,
@@ -936,18 +939,16 @@ impl<'ph, P> PluginHandle<'ph, P> {
         ) -> c_int {
             catch_and_log_unwind("hook_command_callback", || {
                 // Safety: this is exactly the type we pass into user_data below
-                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&str]) -> Eat =
+                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, words: &[&HexStr]) -> Eat =
                     unsafe { mem::transmute(user_data) };
 
                 // Safety: `word` is a valid word pointer for this entire callback
                 let word = unsafe { word_to_iter(&word) };
 
-                let mut words = [""; 32];
+                let mut words = [HexStr::EMPTY; 32];
 
-                for (i, (ws, w)) in words.iter_mut().zip(word).enumerate() {
-                    *ws = w
-                        .to_str()
-                        .unwrap_or_else(|e| panic!("Invalid UTF8 in field index {}: {}", i, e));
+                for (ws, w) in words.iter_mut().zip(word) {
+                    *ws = w;
                 }
 
                 with_plugin_state(|plugin, ph| callback(plugin, ph, &words))
@@ -1005,7 +1006,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         self,
         event: E,
         priority: Priority,
-        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; N]) -> Eat,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&HexStr; N]) -> Eat,
     ) -> HookHandle {
         extern "C" fn hook_print_callback<P: 'static, E: PrintEvent<N>, const N: usize>(
             word: *mut *mut c_char,
@@ -1013,7 +1014,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         ) -> c_int {
             catch_and_log_unwind("hook_print_callback", || {
                 // Safety: this is exactly the type we pass into user_data below
-                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; N]) -> Eat =
+                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&HexStr; N]) -> Eat =
                     unsafe { mem::transmute(user_data) };
 
                 // Safety: `word` is a valid word pointer for this entire callback
@@ -1077,7 +1078,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
             plugin: &P,
             ph: PluginHandle<'_, P>,
             attrs: EventAttrs<'_>,
-            args: [&str; N],
+            args: [&HexStr; N],
         ) -> Eat,
     ) -> HookHandle {
         extern "C" fn hook_print_attrs_callback<P: 'static, E: PrintEvent<N>, const N: usize>(
@@ -1091,7 +1092,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
                     plugin: &P,
                     ph: PluginHandle<'_, P>,
                     attrs: EventAttrs<'_>,
-                    args: [&str; N],
+                    args: [&HexStr; N],
                 ) -> Eat = unsafe { mem::transmute(user_data) };
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
@@ -1170,7 +1171,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         self,
         event: E,
         priority: Priority,
-        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; N]) -> Eat,
+        callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&HexStr; N]) -> Eat,
     ) -> HookHandle {
         extern "C" fn hook_server_callback<P: 'static, E: ServerEvent<N>, const N: usize>(
             word: *mut *mut c_char,
@@ -1179,7 +1180,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         ) -> c_int {
             catch_and_log_unwind("hook_server_callback", || {
                 // Safety: this is exactly the type we pass into user_data below
-                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; N]) -> Eat =
+                let callback: fn(plugin: &P, ph: PluginHandle<'_, P>, args: [&HexStr; N]) -> Eat =
                     unsafe { mem::transmute(user_data) };
 
                 // Safety: `word` is a valid word pointer for this entire callback
@@ -1245,7 +1246,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
             plugin: &P,
             ph: PluginHandle<'_, P>,
             attrs: EventAttrs<'_>,
-            args: [&str; N],
+            args: [&HexStr; N],
         ) -> Eat,
     ) -> HookHandle {
         extern "C" fn hook_server_attrs_callback<P: 'static, E: ServerEvent<N>, const N: usize>(
@@ -1260,7 +1261,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
                     plugin: &P,
                     ph: PluginHandle<'_, P>,
                     attrs: EventAttrs<'_>,
-                    args: [&str; N],
+                    args: [&HexStr; N],
                 ) -> Eat = unsafe { mem::transmute(user_data) };
 
                 // Safety: attrs is a valid hexchat_event_attrs pointer
@@ -1429,7 +1430,8 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///             c"Usage: THISCOMMANDONLYWORKSONCE <args...>, this command only works once",
     ///             Priority::Normal,
     ///             |plugin, ph, words| {
-    ///                 ph.print(format!("You'll only see this once: {}", words.join("|")));
+    ///                 let all_words = words.into_iter().fold(String::new(), |acc, w| acc + "|" + w);
+    ///                 ph.print(format!("You'll only see this once: {}", all_words));
     ///                 if let Some(hook) = plugin.cmd_handle.take() {
     ///                     ph.unhook(hook);
     ///                 }
@@ -1486,7 +1488,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///     }
     /// }
     /// ```
-    pub fn find_context<S: IntoCStr>(self, find: Context<S>) -> Option<ContextHandle<'ph>> {
+    pub fn find_context<S>(self, find: Context<S>) -> Option<ContextHandle<'ph>>
+    where
+        S: IntoCStr,
+    {
         let servname = find.servname.map(|s| s.into_cstr());
         let channel = find.channel.map(|c| c.into_cstr());
 
@@ -1512,10 +1517,11 @@ impl<'ph, P> PluginHandle<'ph, P> {
     /// ```rust
     /// use hexavalent::PluginHandle;
     /// use hexavalent::context::Context;
+    /// use hexavalent::str::HexStr;
     ///
     /// fn send_message_to_channel<P>(
     ///     ph: PluginHandle<'_, P>,
-    ///     channel: &str,
+    ///     channel: &HexStr,
     ///     message: &str,
     /// ) -> Result<(), ()> {
     ///     let ctxt = match ph.find_context(Context::channel(channel)) {
@@ -1598,10 +1604,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// fn load_str<P>(ph: PluginHandle<'_, P>) {
     ///     let pref = ph.pluginpref_get_str(c"myvar1");
-    ///     assert_eq!(pref.unwrap(), "something important");
+    ///     assert_eq!(pref.unwrap().as_str(), "something important");
     /// }
     /// ```
-    pub fn pluginpref_get_str(self, name: impl IntoCStr) -> Result<String, ()> {
+    pub fn pluginpref_get_str(self, name: impl IntoCStr) -> Result<HexString, ()> {
         self.pluginpref_get_str_with(name, |pref| pref.map(ToOwned::to_owned))
     }
 
@@ -1621,14 +1627,14 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///
     /// fn load_str<P>(ph: PluginHandle<'_, P>) {
     ///     ph.pluginpref_get_str_with(c"myvar1", |pref| {
-    ///         assert_eq!(pref, Ok("something important"));
+    ///         assert_eq!(pref.unwrap().as_str(), "something important");
     ///     });
     /// }
     /// ```
     pub fn pluginpref_get_str_with<R>(
         self,
         name: impl IntoCStr,
-        f: impl FnOnce(Result<&str, ()>) -> R,
+        f: impl FnOnce(Result<&HexStr, ()>) -> R,
     ) -> R {
         let name = name.into_cstr();
 
@@ -1651,8 +1657,9 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let buf = buf.map(|x| x as u8);
 
         let str = CStr::from_bytes_until_nul(&buf)
-            .unwrap_or_else(|e| panic!("Buffer overrun in `hexchat_pluginpref_get_str`: {}", e))
-            .to_str()
+            .unwrap_or_else(|e| panic!("Buffer overrun in `hexchat_pluginpref_get_str`: {}", e));
+
+        let str = HexStr::from_cstr(str)
             .unwrap_or_else(|e| panic!("Invalid UTF8 from `hexchat_pluginpref_get_str`: {}", e));
 
         f(Ok(str))
@@ -1785,7 +1792,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
     ///         ph.print(c"All plugin preferences:");
     ///         for pref in prefs {
     ///             ph.pluginpref_get_str_with(pref, |val| {
-    ///                 let val = val.unwrap_or("<not found>");
+    ///                 let val = match val {
+    ///                     Ok(v) => v,
+    ///                     Err(()) => "<not found>",
+    ///                 };
     ///                 ph.print(format!("{} = {}", pref, val));
     ///             });
     ///         }

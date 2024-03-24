@@ -4,25 +4,27 @@ use std::num::NonZeroU64;
 use bitflags::bitflags;
 use time::OffsetDateTime;
 
+use crate::str::{HexStr, HexString};
+
 list!(
     Channels,
     "channels",
     "List of channels, queries and their servers.",
     "A channel.",
     Channel {
-        ["channel", "Channel or query name.", string] name: String => &str,
-        ["channelkey", "Channel key. (HexChat 2.9.6+)", string] key: Option<String> => Option<&str>,
-        ["chanmodes", "Available channel modes e.g. `\"beI,k,l\"`. (HexChat 2.12.2+)", string] modes: String => &str,
-        ["chantypes", "Available channel types e.g. `\"#!&\"`.", string] types: String => &str,
+        ["channel", "Channel or query name.", string] name: HexString => &HexStr,
+        ["channelkey", "Channel key. (HexChat 2.9.6+)", string] key: Option<HexString> => Option<&HexStr>,
+        ["chanmodes", "Available channel modes e.g. `\"beI,k,l\"`. (HexChat 2.12.2+)", string] modes: HexString => &HexStr,
+        ["chantypes", "Available channel types e.g. `\"#!&\"`.", string] types: HexString => &HexStr,
         ["flags", "Info flags.", int] flags: ChannelFlags => ChannelFlags,
         ["id", "Unique server ID.", int] server_id: i32 => i32,
         ["lag", "Lag in milliseconds.", int] lag_ms: i32 => i32,
         ["maxmodes", "Maximum modes per line.", int] max_modes_per_line: u32 => u32,
-        ["network", "Name of network.", string] network: String => &str,
-        ["nickprefixes", "Nickname prefixes e.g. `\"@+\"`.", string] nick_prefixes: String => &str,
-        ["nickmodes", "Nickname mode chars e.g. `\"ov\"`.", string] nick_modes: String => &str,
+        ["network", "Name of network.", string] network: HexString => &HexStr,
+        ["nickprefixes", "Nickname prefixes e.g. `\"@+\"`.", string] nick_prefixes: HexString => &HexStr,
+        ["nickmodes", "Nickname mode chars e.g. `\"ov\"`.", string] nick_modes: HexString => &HexStr,
         ["queue", "Number of bytes in the send-queue.", int] queue: u32 => u32,
-        ["server", "Server name to which this channel belongs.", string] servname: String => &str,
+        ["server", "Server name to which this channel belongs.", string] servname: HexString => &HexStr,
         ["type", "Channel type.", int] ty: ChannelType => ChannelType,
         ["users", "Number of users in this channel.", int] num_users: u32 => u32,
     }
@@ -119,9 +121,9 @@ list!(
             |elem| SocketAddrV4::new(Ipv4Addr::from(elem.int(c"address32") as u32), elem.int(c"port") as u16)
         ] socket_addr: SocketAddrV4 => SocketAddrV4,
         ["cps", "Bytes per second (speed).", int] bytes_per_second: u32 => u32,
-        ["destfile", "Destination full pathname.", string] dest_file: String => &str,
-        ["file", "Filename.", string] file_name: String => &str,
-        ["nick", "Nickname of person who the file is from/to.", string] nick: String => &str,
+        ["destfile", "Destination full pathname.", string] dest_file: HexString => &HexStr,
+        ["file", "Filename.", string] file_name: HexString => &HexStr,
+        ["nick", "Nickname of person who the file is from/to.", string] nick: HexString => &HexStr,
         [
             custom,
             "Bytes sent/received.",
@@ -146,7 +148,7 @@ list!(
     "List of ignores.",
     "An ignored mask.",
     Ignore {
-        ["mask", "Ignore mask, e.g. `\"*!*@*.aol.com\"`.", string] mask: String => &str,
+        ["mask", "Ignore mask, e.g. `\"*!*@*.aol.com\"`.", string] mask: HexString => &HexStr,
         ["flags", "Info flags.", int] flags: IgnoreFlags => IgnoreFlags,
     }
 );
@@ -189,7 +191,7 @@ list!(
     "A nick on notify.",
     Notify {
         ["networks", "Networks to which this nick applies.", string] networks: super::SplitByCommas => impl Iterator<Item = &str>,
-        ["nick", "Nickname.", string] nick: String => &str,
+        ["nick", "Nickname.", string] nick: HexString => &HexStr,
         ["flags", "Info flags.", int] flags: NotifyFlags => NotifyFlags,
         ["on", "Time when user came online.", time] online: OffsetDateTime => OffsetDateTime,
         ["off", "Time when user went offline.", time] offline: OffsetDateTime => OffsetDateTime,
@@ -220,13 +222,13 @@ list!(
     "List of users in the current [context](crate::PluginHandle::find_context).",
     "A user.",
     User {
-        ["account", "Account name. (HexChat 2.9.6+)", string] account: Option<String> => Option<&str>,
+        ["account", "Account name. (HexChat 2.9.6+)", string] account: Option<HexString> => Option<&HexStr>,
         ["away", "Away status.", int] is_away: bool => bool,
         ["lasttalk", "Last time the user was seen talking.", time] last_talk: OffsetDateTime => OffsetDateTime,
-        ["nick", "Nickname.", string] nick: String => &str,
-        ["host", "Hostname e.g. `\"user@host\"`.", string] host: Option<String> => Option<&str>,
+        ["nick", "Nickname.", string] nick: HexString => &HexStr,
+        ["host", "Hostname e.g. `\"user@host\"`.", string] host: Option<HexString> => Option<&HexStr>,
         ["prefix", "Prefix character e.g. `'@'` or `'+'`.", string] prefix: Option<char> => Option<char>,
-        ["realname", "Realname.", string] realname: Option<String> => Option<&str>,
+        ["realname", "Realname.", string] realname: Option<HexString> => Option<&HexStr>,
         ["selected", "Selected status in the user list, only works in the focused tab.", int] is_selected: bool => bool,
     }
 );

@@ -1,7 +1,10 @@
 //! Info lists.
 
 use std::convert::TryFrom;
+use std::ops::Deref;
 use std::str::Split;
+
+use crate::str::{HexStr, HexString};
 
 /// A list that can be retrieved from HexChat.
 ///
@@ -138,22 +141,22 @@ impl<T> FromListElemField<T> for T {
     }
 }
 
-impl FromListElemField<Option<&str>> for String {
-    fn from_list_elem_field(field: Option<&str>) -> Self {
+impl FromListElemField<Option<&HexStr>> for HexString {
+    fn from_list_elem_field(field: Option<&HexStr>) -> Self {
         field
             .map(ToOwned::to_owned)
             .unwrap_or_else(|| panic!("Unexpected null string in list"))
     }
 }
 
-impl FromListElemField<Option<&str>> for Option<String> {
-    fn from_list_elem_field(field: Option<&str>) -> Self {
+impl FromListElemField<Option<&HexStr>> for Option<HexString> {
+    fn from_list_elem_field(field: Option<&HexStr>) -> Self {
         field.map(ToOwned::to_owned)
     }
 }
 
-impl FromListElemField<Option<&str>> for Option<char> {
-    fn from_list_elem_field(field: Option<&str>) -> Self {
+impl FromListElemField<Option<&HexStr>> for Option<char> {
+    fn from_list_elem_field(field: Option<&HexStr>) -> Self {
         match field {
             Some(field) => match field.as_bytes() {
                 &[] => None,
@@ -181,9 +184,9 @@ impl FromListElemField<i32> for bool {
     }
 }
 
-impl FromListElemField<Option<&str>> for SplitByCommas {
-    fn from_list_elem_field(field: Option<&str>) -> Self {
-        Self(field.map(ToOwned::to_owned).unwrap_or_default())
+impl FromListElemField<Option<&HexStr>> for SplitByCommas {
+    fn from_list_elem_field(field: Option<&HexStr>) -> SplitByCommas {
+        SplitByCommas(field.map(|s| s.deref().to_owned()).unwrap_or_default())
     }
 }
 
@@ -197,15 +200,15 @@ impl<'a, T: Copy> ProjectListElemField<'a, T> for T {
     }
 }
 
-impl<'a> ProjectListElemField<'a, &'a str> for String {
-    fn project_list_elem_field(&self) -> &str {
+impl<'a> ProjectListElemField<'a, &'a HexStr> for HexString {
+    fn project_list_elem_field(&self) -> &HexStr {
         self
     }
 }
 
-impl<'a> ProjectListElemField<'a, Option<&'a str>> for Option<String> {
-    fn project_list_elem_field(&self) -> Option<&str> {
-        self.as_ref().map(|s| s.as_str())
+impl<'a> ProjectListElemField<'a, Option<&'a HexStr>> for Option<HexString> {
+    fn project_list_elem_field(&self) -> Option<&HexStr> {
+        self.as_deref()
     }
 }
 

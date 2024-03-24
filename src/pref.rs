@@ -1,5 +1,7 @@
 //! Global preferences.
 
+use crate::str::HexString;
+
 /// The value of a HexChat setting.
 ///
 /// Used with [`PluginHandle::get_pref`](crate::PluginHandle::get_pref).
@@ -13,7 +15,7 @@ where
 {
     /// The preference's type.
     ///
-    /// Can be `String`, `i32`, or `bool`.
+    /// Can be [`HexString`], `i32`, or `bool`.
     // todo with GATs, it _might_ be nice to have Type/BorrowedType<'a>, so that we can avoid allocation
     //  (but we'd probably have to make get_pref_with unsafe due to invalidation of the string)
     type Type: 'static;
@@ -22,6 +24,8 @@ where
 pub(crate) mod private {
     use std::ffi::CStr;
 
+    use crate::str::HexStr;
+
     pub trait PrefImpl {
         const NAME: &'static CStr;
     }
@@ -29,7 +33,7 @@ pub(crate) mod private {
     #[allow(unreachable_pub)]
     #[derive(Debug)]
     pub enum PrefValue<'a> {
-        Str(&'a str),
+        Str(&'a HexStr),
         Int(i32),
         Bool(bool),
     }
@@ -40,7 +44,7 @@ pub(crate) mod private {
     }
 }
 
-impl private::FromPrefValue for String {
+impl private::FromPrefValue for HexString {
     fn from_pref_value(pref: private::PrefValue<'_>) -> Result<Self, ()> {
         match pref {
             private::PrefValue::Str(x) => Ok(x.to_owned()),

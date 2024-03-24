@@ -1,5 +1,7 @@
 //! Context info.
 
+use crate::str::{HexStr, HexString};
+
 /// Info about the current [context](crate::PluginHandle::find_context).
 ///
 /// Used with [`PluginHandle::get_info`](crate::PluginHandle::get_info).
@@ -20,25 +22,27 @@ where
 pub(crate) mod private {
     use std::ffi::CStr;
 
+    use crate::str::HexStr;
+
     pub trait InfoImpl {
         const NAME: &'static CStr;
     }
 
     #[allow(unreachable_pub)]
     pub trait FromInfoValue: Sized {
-        fn from_info_value(info: Option<&str>) -> Self;
+        fn from_info_value(info: Option<&HexStr>) -> Self;
     }
 }
 
-impl private::FromInfoValue for String {
-    fn from_info_value(info: Option<&str>) -> Self {
+impl private::FromInfoValue for HexString {
+    fn from_info_value(info: Option<&HexStr>) -> Self {
         info.map(ToOwned::to_owned)
             .unwrap_or_else(|| panic!("Unexpected null info value"))
     }
 }
 
-impl private::FromInfoValue for Option<String> {
-    fn from_info_value(info: Option<&str>) -> Self {
+impl private::FromInfoValue for Option<HexString> {
+    fn from_info_value(info: Option<&HexStr>) -> Self {
         info.map(ToOwned::to_owned)
     }
 }

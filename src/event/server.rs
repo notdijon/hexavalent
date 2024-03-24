@@ -19,16 +19,10 @@ use crate::event::Event;
 /// use hexavalent::hook::{Eat, Priority};
 ///
 /// fn hook_privmsg<P>(ph: PluginHandle<'_, P>) {
-///     ph.hook_server(Privmsg, Priority::Normal, privmsg_cb);
-/// }
-///
-/// fn privmsg_cb<P>(plugin: &P, ph: PluginHandle<'_, P>, args: [&str; 4]) -> Eat {
-///     let [sender, _, target, text] = args;
-///     ph.print(format!(
-///         "Message from {} to {}: {}",
-///         sender, target, text
-///     ));
-///     Eat::None
+///     ph.hook_server(Privmsg, Priority::Normal, |plugin, ph, [sender, _, target, text]| {
+///         ph.print(format!("Message from {} to {}: {}", sender, target, text));
+///         Eat::None
+///     });
 /// }
 /// ```
 pub trait ServerEvent<const ARGS: usize>: Event<ARGS> {}

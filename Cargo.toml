@@ -28,3 +28,7 @@ debug = 1
 [[example]]
 name = "simple"
 crate-type = ["cdylib"]
+
+[[example]]
+name = "time_shift"
+crate-type = ["cdylib"]
