@@ -188,15 +188,26 @@ macro_rules! export_plugin {
             plugin_version: *mut *const ::std::os::raw::c_char,
             _arg: *mut ::std::os::raw::c_char,
         ) -> ::std::os::raw::c_int {
+            const NAME: &::std::ffi::CStr =
+                match ::std::ffi::CStr::from_bytes_with_nul(concat!($name, "\0").as_bytes()) {
+                    Ok(x) => x,
+                    Err(_) => unreachable!(),
+                };
+            const DESC: &::std::ffi::CStr =
+                match ::std::ffi::CStr::from_bytes_with_nul(concat!($desc, "\0").as_bytes()) {
+                    Ok(x) => x,
+                    Err(_) => unreachable!(),
+                };
+            const VERSION: &::std::ffi::CStr =
+                match ::std::ffi::CStr::from_bytes_with_nul(concat!($version, "\0").as_bytes()) {
+                    Ok(x) => x,
+                    Err(_) => unreachable!(),
+                };
+
             // Safety: these literals are null-terminated and 'static
-            const NAME: &'static str = concat!($name, "\0");
-            const DESC: &'static str = concat!($desc, "\0");
-            const VERSION: &'static str = concat!($version, "\0");
-            // note that these user-provided strings may contain interior nulls, so we cannot go through &CStr
-            // it's fine to go straight to `*const c_char` though, as C doesn't care about that, it'll just end the string early
-            *plugin_name = NAME.as_ptr().cast();
-            *plugin_desc = DESC.as_ptr().cast();
-            *plugin_version = VERSION.as_ptr().cast();
+            *plugin_name = NAME.as_ptr();
+            *plugin_desc = DESC.as_ptr();
+            *plugin_version = VERSION.as_ptr();
 
             $crate::internal::hexchat_plugin_init::<$plugin_ty>(plugin_handle)
         }

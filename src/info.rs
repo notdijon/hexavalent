@@ -18,20 +18,10 @@ where
 }
 
 pub(crate) mod private {
-    use std::os::raw::c_char;
+    use std::ffi::CStr;
 
-    /// Underlying private info implementation.
-    ///
-    /// # Safety
-    ///
-    /// See safety comments on each member.
-    pub unsafe trait InfoImpl {
-        /// The info's name.
-        ///
-        /// # Safety
-        ///
-        /// Must point to a valid, null-terminated C-style string.
-        const NAME: *const c_char;
+    pub trait InfoImpl {
+        const NAME: &'static CStr;
     }
 
     #[allow(unreachable_pub)]
@@ -63,9 +53,12 @@ macro_rules! info {
         #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
-        unsafe impl crate::info::private::InfoImpl for $struct_name {
-            // Safety: this string is null-terminated and static
-            const NAME: *const ::std::os::raw::c_char = concat!($info_name, "\0").as_ptr().cast();
+        impl crate::info::private::InfoImpl for $struct_name {
+            const NAME: &'static ::std::ffi::CStr =
+                match ::std::ffi::CStr::from_bytes_with_nul(concat!($info_name, "\0").as_bytes()) {
+                    Ok(name) => name,
+                    Err(_) => unreachable!(),
+                };
         }
 
         impl crate::info::Info for $struct_name {

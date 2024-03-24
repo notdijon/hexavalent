@@ -278,7 +278,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         // Safety: `NAME` and `args` are null-terminated C strings; vararg list is null-terminated
         int_to_result(unsafe {
             self.raw.hexchat_emit_print(
-                E::NAME,
+                E::NAME.as_ptr(),
                 args[0],
                 args[1],
                 args[2],
@@ -356,7 +356,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
             // Safety: `event_attrs` is fully initialized; `NAME` and `args` are null-terminated C strings, varags list is null-terminated
             self.raw.hexchat_emit_print_attrs(
                 event_attrs,
-                E::NAME,
+                E::NAME.as_ptr(),
                 args[0],
                 args[1],
                 args[2],
@@ -575,7 +575,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let _ = info;
 
         // Safety: NAME is a null-terminated C string
-        let ptr = unsafe { self.raw.hexchat_get_info(I::NAME) };
+        let ptr = unsafe { self.raw.hexchat_get_info(I::NAME.as_ptr()) };
 
         if ptr.is_null() {
             return f(None);
@@ -626,7 +626,10 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let mut int = 0;
 
         // Safety: NAME is a null-terminated C string
-        let result = unsafe { self.raw.hexchat_get_prefs(Pr::NAME, &mut string, &mut int) };
+        let result = unsafe {
+            self.raw
+                .hexchat_get_prefs(Pr::NAME.as_ptr(), &mut string, &mut int)
+        };
 
         // https://hexchat.readthedocs.io/en/latest/plugins.html#c.hexchat_get_prefs
         let value = match result {
@@ -740,7 +743,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         let _ = list;
 
         // Safety: NAME is a null-terminated C string
-        let list_ptr = unsafe { self.raw.hexchat_list_get(L::NAME) };
+        let list_ptr = unsafe { self.raw.hexchat_list_get(L::NAME.as_ptr()) };
 
         let list_ptr = match NonNull::new(list_ptr) {
             Some(list_ptr) => list_ptr,
@@ -1027,7 +1030,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         // Safety: NAME is a null-terminated C string
         let hook = unsafe {
             self.raw.hexchat_hook_print(
-                E::NAME,
+                E::NAME.as_ptr(),
                 priority as c_int,
                 hook_print_callback::<P, E, N>,
                 callback as *mut c_void,
@@ -1124,7 +1127,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         // Safety: NAME is a null-terminated C string
         let hook = unsafe {
             self.raw.hexchat_hook_print_attrs(
-                E::NAME,
+                E::NAME.as_ptr(),
                 priority as c_int,
                 hook_print_attrs_callback::<P, E, N>,
                 callback as *mut c_void,
@@ -1195,7 +1198,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         // Safety: NAME is a null-terminated C string
         let hook = unsafe {
             self.raw.hexchat_hook_server(
-                E::NAME,
+                E::NAME.as_ptr(),
                 priority as c_int,
                 hook_server_callback::<P, E, N>,
                 callback as *mut c_void,
@@ -1295,7 +1298,7 @@ impl<'ph, P> PluginHandle<'ph, P> {
         // Safety: NAME is a null-terminated C string
         let hook = unsafe {
             self.raw.hexchat_hook_server_attrs(
-                E::NAME,
+                E::NAME.as_ptr(),
                 priority as c_int,
                 hook_server_attrs_callback::<P, E, N>,
                 callback as *mut c_void,

@@ -19,22 +19,11 @@ where
 }
 
 pub(crate) mod private {
-    use std::os::raw::c_char;
-
     use crate::ffi::ListElem;
+    use std::ffi::CStr;
 
-    /// Underlying private list implementation.
-    ///
-    /// # Safety
-    ///
-    /// See safety comments on each member.
-    pub unsafe trait ListImpl {
-        /// The list's name.
-        ///
-        /// # Safety
-        ///
-        /// Must point to a valid, null-terminated C-style string.
-        const NAME: *const c_char;
+    pub trait ListImpl {
+        const NAME: &'static CStr;
     }
 
     #[allow(unreachable_pub)]
@@ -64,9 +53,11 @@ macro_rules! list {
         #[derive(Debug, Copy, Clone)]
         pub struct $struct_name;
 
-        unsafe impl crate::list::private::ListImpl for $struct_name {
-            // Safety: this string is null-terminated and static
-            const NAME: *const ::std::os::raw::c_char = concat!($list_name, "\0").as_ptr().cast();
+        impl crate::list::private::ListImpl for $struct_name {
+            const NAME: &'static ::std::ffi::CStr = match ::std::ffi::CStr::from_bytes_with_nul(concat!($list_name, "\0").as_bytes()) {
+                Ok(name) => name,
+                Err(_) => unreachable!(),
+            };
         }
 
         impl crate::list::List for $struct_name {

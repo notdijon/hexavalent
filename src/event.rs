@@ -54,20 +54,9 @@ pub trait Event<const ARGS: usize>: private::EventImpl<ARGS> {}
 
 pub(crate) mod private {
     use std::ffi::CStr;
-    use std::os::raw::c_char;
 
-    /// Underlying private event implementation.
-    ///
-    /// # Safety
-    ///
-    /// See safety comments on each member.
-    pub unsafe trait EventImpl<const ARGS: usize> {
-        /// The event's name.
-        ///
-        /// # Safety
-        ///
-        /// Must point to a valid, null-terminated C-style string.
-        const NAME: *const c_char;
+    pub trait EventImpl<const ARGS: usize> {
+        const NAME: &'static CStr;
 
         /// Converts an array of C-style strings to this event's args.
         ///
@@ -137,9 +126,11 @@ macro_rules! event {
 
         impl crate::event::Event<{ count!($($index)* $($eol_index)?) }> for $struct_name {}
 
-        unsafe impl crate::event::private::EventImpl<{ count!($($index)* $($eol_index)?) }> for $struct_name {
-            // Safety: this string is null-terminated and static
-            const NAME: *const ::std::os::raw::c_char = concat!($event_name, "\0").as_ptr().cast();
+        impl crate::event::private::EventImpl<{ count!($($index)* $($eol_index)?) }> for $struct_name {
+            const NAME: &'static ::std::ffi::CStr = match ::std::ffi::CStr::from_bytes_with_nul(concat!($event_name, "\0").as_bytes()) {
+                Ok(name) => name,
+                Err(_) => unreachable!(),
+            };
 
             #[allow(dead_code)]
             #[allow(unused_variables)]
@@ -165,9 +156,9 @@ macro_rules! event {
                             .to_str()
                             .unwrap_or_else(|e| {
                                 panic!(
-                                    "Invalid UTF8 in field index {} of event '{}': {}",
-                                    $index,
+                                    "Invalid UTF8 in event '{}' field '{}': {}",
                                     $event_name,
+                                    $field_name,
                                     e,
                                 )
                             }),
@@ -186,9 +177,9 @@ macro_rules! event {
                             .to_str()
                             .unwrap_or_else(|e| {
                                 panic!(
-                                    "Invalid UTF8 in field index {} of event '{}': {}",
-                                    $eol_index,
+                                    "Invalid UTF8 in event '{}' field '{}': {}",
                                     $event_name,
+                                    $eol_name,
                                     e,
                                 )
                             }),
