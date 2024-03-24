@@ -22,44 +22,54 @@ pub(crate) fn catch_and_log_unwind<R>(
     ctxt_msg: &str,
     f: impl FnOnce() -> R + UnwindSafe,
 ) -> Result<R, ()> {
+    #[cold]
+    #[inline(never)]
     fn abort_process_due_to_panic_in_panic_logger() -> ! {
         process::abort()
     }
 
+    #[cold]
+    #[inline(never)]
     fn abort_process_due_to_panic_without_plugin_handle() -> ! {
         process::abort()
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn handle_plugin_panic(ctxt_msg: &str, e: Box<dyn Any + Send>) {
+        let panic_msg = if let Some(s) = e.downcast_ref::<String>() {
+            s.as_str()
+        } else if let Some(s) = e.downcast_ref::<&'static str>() {
+            s
+        } else {
+            &"<unknown>"
+        };
+
+        eprintln!(
+            "WARNING: `hexavalent` caught panic (in `{}`): {}",
+            ctxt_msg, panic_msg
+        );
+
+        let plugin_handle = LAST_RESORT_PLUGIN_HANDLE.load(Ordering::Relaxed);
+        if plugin_handle.is_null() {
+            eprintln!("FATAL: `hexavalent` cannot find a plugin context");
+            abort_process_due_to_panic_without_plugin_handle()
+        } else {
+            let message = format!(
+                "WARNING: `hexavalent` caught panic (in `{}`): {}\0",
+                ctxt_msg, panic_msg
+            );
+            // Safety: message is null-terminated
+            // (Un)Safety: plugin_handle may not be valid, but there's nothing we can do here
+            unsafe { ((*plugin_handle).hexchat_print)(plugin_handle, message.as_ptr().cast()) }
+        }
     }
 
     catch_unwind(|| match catch_unwind(f) {
         Ok(x) => Ok(x),
         Err(e) => {
-            let panic_msg = if let Some(s) = e.downcast_ref::<String>() {
-                s.as_str()
-            } else if let Some(s) = e.downcast_ref::<&'static str>() {
-                s
-            } else {
-                &"<unknown>"
-            };
-
-            eprintln!(
-                "WARNING: `hexavalent` caught panic (in `{}`): {}",
-                ctxt_msg, panic_msg
-            );
-
-            let plugin_handle = LAST_RESORT_PLUGIN_HANDLE.load(Ordering::Relaxed);
-            if plugin_handle.is_null() {
-                eprintln!("FATAL: `hexavalent` cannot find a plugin context");
-                abort_process_due_to_panic_without_plugin_handle()
-            } else {
-                let message = format!(
-                    "WARNING: `hexavalent` caught panic (in `{}`): {}\0",
-                    ctxt_msg, panic_msg
-                );
-                // Safety: message is null-terminated
-                // (Un)Safety: plugin_handle may not be valid, but there's nothing we can do here
-                unsafe { ((*plugin_handle).hexchat_print)(plugin_handle, message.as_ptr().cast()) }
-                Err(())
-            }
+            handle_plugin_panic(ctxt_msg, e);
+            Err(())
         }
     })
     .unwrap_or_else(|_| abort_process_due_to_panic_in_panic_logger())
@@ -174,25 +184,52 @@ pub(crate) unsafe fn hexchat_plugin_deinit<P: Plugin>(plugin_handle: *mut hexcha
 ///
 /// If the initialized plugin is not of type `P`.
 pub(crate) fn with_plugin_state<P: 'static, R>(f: impl FnOnce(&P, PluginHandle<'_, P>) -> R) -> R {
+    #[cold]
+    #[inline(never)]
+    fn panic_on_bad_initial_state(state: usize) -> ! {
+        assert_ne!(state, LOCKED, "plugin invoked while (un)loading");
+        assert_ne!(state + 1, LOCKED, "too many references to plugin state");
+        unreachable!();
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn panic_on_concurrent_invoke<T>(state: usize) -> T {
+        panic!("Plugin invoked concurrently (?), state: {}", state);
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn panic_on_uninitialized_plugin<T>() -> T {
+        panic!("Plugin invoked while uninitialized");
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn panic_on_wrong_type<T>() -> T {
+        panic!("Plugin is an unexpected type");
+    }
+
     // usually this check would be looped to account for multiple reader threads trying to acquire it at the same time
     // but we expect there to be only one thread, so panic instead
     let state = STATE.load(Ordering::Relaxed);
-    assert_ne!(state, LOCKED, "plugin invoked while (un)loading");
-    assert_ne!(state + 1, LOCKED, "too many references to plugin state");
+    if state == LOCKED || state + 1 == LOCKED {
+        panic_on_bad_initial_state(state);
+    }
     STATE
         .compare_exchange(state, state + 1, Ordering::Relaxed, Ordering::Relaxed)
-        .unwrap_or_else(|e| panic!("Plugin invoked concurrently (?), state: {}", e));
+        .unwrap_or_else(panic_on_concurrent_invoke);
     defer! {{
         STATE
             .compare_exchange(state + 1, state, Ordering::Relaxed, Ordering::Relaxed)
-            .unwrap_or_else(|e| panic!("Plugin invoked concurrently (?), state: {}", e));
+            .unwrap_or_else(panic_on_concurrent_invoke);
     }}
 
     // Safety: STATE guarantees that there are only readers active
     let global_plugin = unsafe {
         (*PLUGIN.get())
             .as_ref()
-            .unwrap_or_else(|| panic!("Plugin invoked while uninitialized"))
+            .unwrap_or_else(panic_on_uninitialized_plugin)
     };
 
     #[cfg(debug_assertions)]
@@ -205,7 +242,7 @@ pub(crate) fn with_plugin_state<P: 'static, R>(f: impl FnOnce(&P, PluginHandle<'
     let plugin = global_plugin
         .plugin
         .downcast_ref()
-        .unwrap_or_else(|| panic!("Plugin is an unexpected type"));
+        .unwrap_or_else(panic_on_wrong_type);
 
     // Safety: we only store valid `plugin_handle`s in `PLUGIN`
     let raw = unsafe { RawPluginHandle::new(global_plugin.plugin_handle) };
